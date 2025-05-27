@@ -5,6 +5,8 @@ import multer from 'multer';
 import authRoutes from './routes/auth.routes.js'; 
 import rolesRoutes from './routes/roles.routes.js'; 
 import perfilRoutes from './routes/perfil.routes.js'; 
+import categoriaRoutes from './routes/categoria.routes.js';
+import juegosRoutes from './routes/juegos.routes.js';
 import connection from './db.js';
 import { storage } from './config/cloudinary.js';
 
@@ -61,7 +63,9 @@ app.get('/api/test', (req, res) => {
     rutas_disponibles: {
       auth: '/api/auth/*',
       roles: '/api/rol/*',
-      perfil: '/api/perfil/*'
+      perfil: '/api/perfil/*',
+      categoria: '/api/categoria/*',
+      juegos: '/api/juegos/*'
     }
   });
 });
@@ -95,6 +99,8 @@ app.post('/api/upload', upload.single('foto'), (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/rol', rolesRoutes);
 app.use('/api/perfil', perfilRoutes);
+app.use('/api/categoria', categoriaRoutes);
+app.use('/api/juegos', juegosRoutes);
 
 // Middleware para rutas no encontradas
 app.use((req, res) => {
@@ -143,6 +149,8 @@ const server = app.listen(PORT, () => {
   console.log('   - /api/auth/*');
   console.log('   - /api/rol/*');
   console.log('   - /api/perfil/*');
+  console.log('   - /api/categoria/*');
+  console.log('   - /api/juegos/*');
   console.log('   - /api/upload (Cloudinary)');
 });
 
