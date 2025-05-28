@@ -30,11 +30,27 @@ app.use((req, res, next) => {
   next();
 });
 
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  process.env.PRODUCTION_URL // Ejemplo: https://www.takercup.com
+].filter(Boolean); // Elimina los valores null/undefined
+
 // Configuración de CORS
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true
+  origin: (origin, callback) => {
+    // Permitir solicitudes sin origen (como las aplicaciones móviles o Postman)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('No permitido por CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  credentials: true,
+  optionsSuccessStatus: 200
 }));
 
 // Middleware para parsear JSON y form data

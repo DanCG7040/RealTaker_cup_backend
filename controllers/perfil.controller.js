@@ -207,4 +207,36 @@ export const eliminarUsuarioAdmin = async (req, res) => {
       return res.status(500).json({ message: 'Error al eliminar usuario' });
     }
 };
+
+export const obtenerTodosUsuarios = async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ success: false, error: 'No autorizado' });
+    }
+
+    try {
+        const token = authHeader.split(' ')[1];
+        const decoded = jwt.verify(token, process.env.SECRET);
+
+        if (decoded.rol !== 0) {
+            return res.status(403).json({ success: false, error: 'Solo los administradores pueden ver todos los usuarios' });
+        }
+
+        const [rows] = await connection.query(
+            'SELECT id, nickname, email, foto, rol FROM usuarios'
+        );
+
+        return res.status(200).json({
+            success: true,
+            data: rows
+        });
+
+    } catch (error) {
+        console.error('Error al obtener usuarios:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Error al obtener usuarios'
+        });
+    }
+};
   

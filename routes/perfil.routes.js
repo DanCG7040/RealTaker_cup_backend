@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import { storage } from '../config/cloudinary.js';
-import { actualizarPerfil, obtenerPerfil, actualizarUsuarioAdmin, eliminarUsuarioAdmin } from '../controllers/perfil.controller.js';
+import { actualizarPerfil, obtenerPerfil, actualizarUsuarioAdmin, eliminarUsuarioAdmin, obtenerTodosUsuarios } from '../controllers/perfil.controller.js';
 import { verificarToken } from '../middlewares/auth.middleware.js';
 import { checkAdminRole } from '../middlewares/roleCheck.js';
 
@@ -50,6 +50,7 @@ router.put('/', verificarToken, (req, res, next) => {
 
 // Rutas de administrador
 router.use('/admin', verificarToken, checkAdminRole);
+router.get('/admin/usuarios', obtenerTodosUsuarios);
 router.post('/admin/crear', actualizarUsuarioAdmin);
 router.put('/admin/actualizar/:nicknameObjetivo', actualizarUsuarioAdmin);
 router.delete('/admin/eliminar/:nicknameObjetivo', eliminarUsuarioAdmin);
