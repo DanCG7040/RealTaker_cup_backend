@@ -209,21 +209,36 @@ export const eliminarUsuarioAdmin = async (req, res) => {
 };
 
 export const obtenerTodosUsuarios = async (req, res) => {
+    console.log('📝 Iniciando obtenerTodosUsuarios');
     const authHeader = req.headers.authorization;
+    
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ success: false, error: 'No autorizado' });
+        return res.status(401).json({ 
+            success: false, 
+            error: 'No autorizado' 
+        });
     }
 
     try {
         const token = authHeader.split(' ')[1];
         const decoded = jwt.verify(token, process.env.SECRET);
 
+        if (!decoded.rol && decoded.rol !== 0) {
+            return res.status(401).json({ 
+                success: false, 
+                error: 'Token inválido: falta información del rol' 
+            });
+        }
+
         if (decoded.rol !== 0) {
-            return res.status(403).json({ success: false, error: 'Solo los administradores pueden ver todos los usuarios' });
+            return res.status(403).json({ 
+                success: false, 
+                error: 'Solo los administradores pueden ver todos los usuarios' 
+            });
         }
 
         const [rows] = await connection.query(
-            'SELECT id, nickname, email, foto, rol FROM usuarios'
+            'SELECT nickname, email, rol FROM usuarios'
         );
 
         return res.status(200).json({
@@ -232,7 +247,22 @@ export const obtenerTodosUsuarios = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Error al obtener usuarios:', error);
+        console.error('Error en obtenerTodosUsuarios:', error.message);
+        
+        if (error.name === 'JsonWebTokenError') {
+            return res.status(401).json({
+                success: false,
+                error: 'Token inválido'
+            });
+        }
+        
+        if (error.name === 'TokenExpiredError') {
+            return res.status(401).json({
+                success: false,
+                error: 'Token expirado'
+            });
+        }
+        
         return res.status(500).json({
             success: false,
             error: 'Error al obtener usuarios'

@@ -99,23 +99,28 @@ export const loginUsuario = async (req, res) => {
       return res.status(400).json({ message: 'Contraseña incorrecta' });
     }
 
-    const rol = usuario.rol; // esto viene de la base de datos
-
+    // Generar token incluyendo el rol
     const token = jwt.sign(
-      { nickname: usuario.nickname, rol: rol }, // 👈 asegúrate de incluir rol aquí
+      { 
+        nickname: usuario.nickname,
+        rol: usuario.rol // Asegurarnos de incluir el rol
+      },
       process.env.SECRET,
       { expiresIn: '2h' }
     );
-    
 
     return res.status(200).json({
+      success: true,
       message: 'Login exitoso',
       token
     });
 
   } catch (error) {
     console.error('Error al hacer login:', error);
-    return res.status(500).json({ message: 'Error al hacer login' });
+    return res.status(500).json({ 
+      success: false,
+      message: 'Error al hacer login' 
+    });
   }
 };
 
