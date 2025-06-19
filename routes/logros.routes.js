@@ -1,5 +1,5 @@
 import express from 'express';
-import { verificarToken } from '../middlewares/auth.middleware.js';
+import { verificarToken, verificarAdmin } from '../middlewares/auth.middleware.js';
 import {
     getAllLogros,
     getLogroById,
@@ -7,7 +7,7 @@ import {
     updateLogro,
     deleteLogro
 } from '../controllers/logros.controller.js';
-import { upload } from '../config/cloudinary.js';
+import { uploadLogros } from '../config/cloudinary.js';
 
 const router = express.Router();
 
@@ -15,9 +15,9 @@ const router = express.Router();
 router.get('/', getAllLogros);
 router.get('/:idLogros', getLogroById);
 
-// Rutas protegidas (requieren autenticación)
-router.post('/', verificarToken, upload.single('foto'), createLogro);
-router.put('/:idLogros', verificarToken, upload.single('foto'), updateLogro);
-router.delete('/:idLogros', verificarToken, deleteLogro);
+// Rutas protegidas (requieren autenticación y permisos de administrador)
+router.post('/', verificarToken, verificarAdmin, uploadLogros.single('foto'), createLogro);
+router.put('/:idLogros', verificarToken, verificarAdmin, uploadLogros.single('foto'), updateLogro);
+router.delete('/:idLogros', verificarToken, verificarAdmin, deleteLogro);
 
 export default router; 

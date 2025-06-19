@@ -35,4 +35,14 @@ export const verificarToken = (req, res, next) => {
             error: 'Token inválido o expirado'
         });
     }
+};
+
+export const verificarAdmin = (req, res, next) => {
+    if (!req.user || req.user.rol !== 0) {
+        return res.status(403).json({
+            success: false,
+            error: 'Acceso denegado: se requieren permisos de administrador'
+        });
+    }
+    next();
 }; 

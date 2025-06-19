@@ -1,5 +1,5 @@
 import express from 'express';
-import { verificarToken } from '../middlewares/auth.middleware.js';
+import { verificarToken, verificarAdmin } from '../middlewares/auth.middleware.js';
 import {
     getAllComodines,
     getComodinById,
@@ -7,7 +7,7 @@ import {
     updateComodin,
     deleteComodin
 } from '../controllers/comodines.controller.js';
-import { upload } from '../config/cloudinary.js';
+import { uploadComodines } from '../config/cloudinary.js';
 
 const router = express.Router();
 
@@ -15,9 +15,9 @@ const router = express.Router();
 router.get('/', getAllComodines);
 router.get('/:idComodines', getComodinById);
 
-// Rutas protegidas (requieren autenticación)
-router.post('/', verificarToken, upload.single('foto'), createComodin);
-router.put('/:idComodines', verificarToken, upload.single('foto'), updateComodin);
-router.delete('/:idComodines', verificarToken, deleteComodin);
+// Rutas protegidas (requieren autenticación y permisos de administrador)
+router.post('/', verificarToken, verificarAdmin, uploadComodines.single('foto'), createComodin);
+router.put('/:idComodines', verificarToken, verificarAdmin, uploadComodines.single('foto'), updateComodin);
+router.delete('/:idComodines', verificarToken, verificarAdmin, deleteComodin);
 
 export default router; 

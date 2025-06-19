@@ -7,7 +7,7 @@ import {
     updateJuego,
     deleteJuego
 } from '../controllers/juegos.controller.js';
-import { upload } from '../config/cloudinary.js';
+import { uploadJuegos } from '../config/cloudinary.js';
 
 const router = express.Router();
 
@@ -16,8 +16,8 @@ router.get('/', getAllJuegos);
 router.get('/:id', getJuegoById);
 
 // Rutas protegidas (requieren autenticación)
-router.post('/', verificarToken, upload.single('foto'), createJuego);
-router.put('/:id', verificarToken, upload.single('foto'), updateJuego);
+router.post('/', verificarToken, uploadJuegos.single('foto'), createJuego);
+router.put('/:id', verificarToken, uploadJuegos.single('foto'), updateJuego);
 router.delete('/:id', verificarToken, deleteJuego);
 
 export default router; 

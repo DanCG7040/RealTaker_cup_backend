@@ -10,14 +10,14 @@ import juegosRoutes from './routes/juegos.routes.js';
 import logrosRoutes from './routes/logros.routes.js';
 import comodinesRoutes from './routes/comodines.routes.js';
 import connection from './db.js';
-import { storage } from './config/cloudinary.js';
+import { uploadPerfiles } from './config/cloudinary.js';
 
 // Cargar variables de entorno
 dotenv.config();
 
-// Configurar multer con Cloudinary
+// Configurar multer con Cloudinary para uploads generales
 const upload = multer({ 
-  storage,
+  storage: uploadPerfiles.storage,
   limits: {
     fileSize: 2 * 1024 * 1024 // Límite de 2MB
   }
