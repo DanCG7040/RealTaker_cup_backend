@@ -7,6 +7,8 @@ import rolesRoutes from './routes/roles.routes.js';
 import perfilRoutes from './routes/perfil.routes.js'; 
 import categoriaRoutes from './routes/categoria.routes.js';
 import juegosRoutes from './routes/juegos.routes.js';
+import logrosRoutes from './routes/logros.routes.js';
+import comodinesRoutes from './routes/comodines.routes.js';
 import connection from './db.js';
 import { storage } from './config/cloudinary.js';
 
@@ -81,7 +83,9 @@ app.get('/api/test', (req, res) => {
       roles: '/api/rol/*',
       perfil: '/api/perfil/*',
       categoria: '/api/categoria/*',
-      juegos: '/api/juegos/*'
+      juegos: '/api/juegos/*',
+      logros: '/api/logros/*',
+      comodines: '/api/comodines/*'
     }
   });
 });
@@ -117,6 +121,8 @@ app.use('/api/rol', rolesRoutes);
 app.use('/api/perfil', perfilRoutes);
 app.use('/api/categoria', categoriaRoutes);
 app.use('/api/juegos', juegosRoutes);
+app.use('/api/logros', logrosRoutes);
+app.use('/api/comodines', comodinesRoutes);
 
 // Middleware para rutas no encontradas
 app.use((req, res) => {
@@ -167,6 +173,8 @@ const server = app.listen(PORT, () => {
   console.log('   - /api/perfil/*');
   console.log('   - /api/categoria/*');
   console.log('   - /api/juegos/*');
+  console.log('   - /api/logros/*');
+  console.log('   - /api/comodines/*');
   console.log('   - /api/upload (Cloudinary)');
 });
 
