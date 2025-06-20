@@ -10,7 +10,7 @@ export const getRuletaItems = async (req, res) => {
              c.foto as comodin_foto
       FROM ruleta r
       LEFT JOIN comodines c ON r.comodin_id = c.idcomodines
-      ORDER BY r.orden ASC
+      ORDER BY r.id ASC
     `);
 
     res.json({
@@ -29,19 +29,28 @@ export const getRuletaItems = async (req, res) => {
 // Crear nuevo elemento de ruleta
 export const createRuletaItem = async (req, res) => {
   try {
-    const { nombre, descripcion, tipo, comodin_id, texto_personalizado, probabilidad, activo, orden } = req.body;
-    let imagen_url = null;
+    const { nombre, tipo, comodin_id, texto_personalizado, puntos, activo } = req.body;
 
-    // Subir imagen si se proporciona
-    if (req.file) {
-      const result = await uploadToCloudinary(req.file.path);
-      imagen_url = result.secure_url;
+    // Convertir activo de string a booleano
+    const activoBoolean = activo === 'true' || activo === true;
+
+    // Preparar los datos según el tipo
+    let comodinId = null;
+    let textoPersonalizado = null;
+    let puntosValue = null;
+
+    if (tipo === 'comodin') {
+      comodinId = comodin_id;
+    } else if (tipo === 'puntos') {
+      puntosValue = puntos;
+    } else if (tipo === 'personalizado') {
+      textoPersonalizado = texto_personalizado;
     }
 
     const [result] = await connection.query(`
-      INSERT INTO ruleta (nombre, descripcion, tipo, comodin_id, texto_personalizado, imagen_url, probabilidad, activo, orden)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [nombre, descripcion, tipo, comodin_id || null, texto_personalizado || null, imagen_url, probabilidad, activo, orden]);
+      INSERT INTO ruleta (nombre, tipo, comodin_id, activo)
+      VALUES (?, ?, ?, ?)
+    `, [nombre, tipo, comodinId, activoBoolean]);
 
     res.status(201).json({
       success: true,
@@ -61,31 +70,23 @@ export const createRuletaItem = async (req, res) => {
 export const updateRuletaItem = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, descripcion, tipo, comodin_id, texto_personalizado, probabilidad, activo, orden } = req.body;
-    let imagen_url = null;
+    const { nombre, tipo, comodin_id, texto_personalizado, puntos, activo } = req.body;
 
-    // Subir imagen si se proporciona
-    if (req.file) {
-      const result = await uploadToCloudinary(req.file.path);
-      imagen_url = result.secure_url;
+    // Convertir activo de string a booleano
+    const activoBoolean = activo === 'true' || activo === true;
+
+    // Preparar los datos según el tipo
+    let comodinId = null;
+
+    if (tipo === 'comodin') {
+      comodinId = comodin_id;
     }
 
-    let query = `
+    await connection.query(`
       UPDATE ruleta 
-      SET nombre = ?, descripcion = ?, tipo = ?, comodin_id = ?, texto_personalizado = ?, probabilidad = ?, activo = ?, orden = ?
-    `;
-    let params = [nombre, descripcion, tipo, comodin_id || null, texto_personalizado || null, probabilidad, activo, orden];
-
-    // Si hay nueva imagen, incluirla en la actualización
-    if (imagen_url) {
-      query += ', imagen_url = ?';
-      params.push(imagen_url);
-    }
-
-    query += ' WHERE id = ?';
-    params.push(id);
-
-    await connection.query(query, params);
+      SET nombre = ?, tipo = ?, comodin_id = ?, activo = ?
+      WHERE id = ?
+    `, [nombre, tipo, comodinId, activoBoolean, id]);
 
     res.json({
       success: true,

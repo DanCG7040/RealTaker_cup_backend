@@ -9,7 +9,7 @@ export const getConfiguracionInicio = async (req, res) => {
     let configuracion;
     if (rows.length === 0 || !rows[0].orden_secciones) {
       // Configuración por defecto
-      const defaultOrden = ['novedades', 'tablaGeneral', 'jugadores', 'juegos', 'comodines'];
+      const defaultOrden = ['novedades', 'tablaGeneral', 'jugadores', 'juegos', 'comodines', 'ruleta'];
       configuracion = {
         mostrarTablaGeneral: true,
         ordenSecciones: defaultOrden
