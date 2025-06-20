@@ -1,4 +1,5 @@
-import { pool } from '../config/db.js';
+import connection from '../db.js';
+import { crearHistoricoAutomatico } from './historico.controller.js';
 
 // Crear una nueva edición del torneo
 export const createEdicion = async (req, res) => {
@@ -30,7 +31,7 @@ export const createEdicion = async (req, res) => {
         }
 
         // Verificar si ya existe una edición con ese año
-        const [existingEdicion] = await pool.query(
+        const [existingEdicion] = await connection.query(
             'SELECT * FROM edicion WHERE idEdicion = ?',
             [idEdicion]
         );
@@ -43,13 +44,16 @@ export const createEdicion = async (req, res) => {
         }
 
         // Crear la nueva edición
-        await pool.query(
+        await connection.query(
             'INSERT INTO edicion (idEdicion, fecha_inicio, fecha_fin) VALUES (?, ?, ?)',
             [idEdicion, fecha_inicio, fecha_fin]
         );
 
+        // Crear histórico automáticamente de la edición anterior
+        await crearHistoricoAutomatico(idEdicion);
+
         // Obtener la edición creada
-        const [nuevaEdicion] = await pool.query(
+        const [nuevaEdicion] = await connection.query(
             'SELECT * FROM edicion WHERE idEdicion = ?',
             [idEdicion]
         );
@@ -72,7 +76,7 @@ export const createEdicion = async (req, res) => {
 // Obtener todas las ediciones
 export const getAllEdiciones = async (req, res) => {
     try {
-        const [ediciones] = await pool.query(
+        const [ediciones] = await connection.query(
             'SELECT * FROM edicion ORDER BY idEdicion DESC'
         );
 
@@ -95,7 +99,7 @@ export const getAllEdiciones = async (req, res) => {
 export const getEdicionById = async (req, res) => {
     try {
         const { idEdicion } = req.params;
-        const [ediciones] = await pool.query(
+        const [ediciones] = await connection.query(
             'SELECT * FROM edicion WHERE idEdicion = ?',
             [idEdicion]
         );
@@ -129,7 +133,7 @@ export const updateEdicion = async (req, res) => {
         const { fecha_inicio, fecha_fin } = req.body;
 
         // Verificar que la edición existe
-        const [existingEdicion] = await pool.query(
+        const [existingEdicion] = await connection.query(
             'SELECT * FROM edicion WHERE idEdicion = ?',
             [idEdicion]
         );
@@ -150,12 +154,12 @@ export const updateEdicion = async (req, res) => {
         }
 
         // Actualizar la edición
-        await pool.query(
+        await connection.query(
             'UPDATE edicion SET fecha_inicio = COALESCE(?, fecha_inicio), fecha_fin = COALESCE(?, fecha_fin) WHERE idEdicion = ?',
             [fecha_inicio, fecha_fin, idEdicion]
         );
 
-        const [edicionActualizada] = await pool.query(
+        const [edicionActualizada] = await connection.query(
             'SELECT * FROM edicion WHERE idEdicion = ?',
             [idEdicion]
         );
@@ -181,7 +185,7 @@ export const deleteEdicion = async (req, res) => {
         const { idEdicion } = req.params;
 
         // Verificar que la edición existe
-        const [existingEdicion] = await pool.query(
+        const [existingEdicion] = await connection.query(
             'SELECT * FROM edicion WHERE idEdicion = ?',
             [idEdicion]
         );
@@ -193,12 +197,13 @@ export const deleteEdicion = async (req, res) => {
             });
         }
 
-        // Eliminar registros relacionados primero
-        await pool.query('DELETE FROM torneo_juegos WHERE torneo_id = ?', [idEdicion]);
-        await pool.query('DELETE FROM torneo_participantes WHERE idEdicion = ?', [idEdicion]);
+        // Eliminar registros relacionados primero (en orden de dependencia)
+        await connection.query('DELETE FROM tabla_general WHERE idEdicion = ?', [idEdicion]);
+        await connection.query('DELETE FROM torneo_juegos WHERE torneo_id = ?', [idEdicion]);
+        await connection.query('DELETE FROM torneo_participantes WHERE idEdicion = ?', [idEdicion]);
         
         // Eliminar la edición
-        await pool.query('DELETE FROM edicion WHERE idEdicion = ?', [idEdicion]);
+        await connection.query('DELETE FROM edicion WHERE idEdicion = ?', [idEdicion]);
 
         return res.status(200).json({
             success: true,
@@ -228,7 +233,7 @@ export const asignarJuegos = async (req, res) => {
         }
 
         // Verificar que la edición existe
-        const [existingEdicion] = await pool.query(
+        const [existingEdicion] = await connection.query(
             'SELECT * FROM edicion WHERE idEdicion = ?',
             [idEdicion]
         );
@@ -241,11 +246,11 @@ export const asignarJuegos = async (req, res) => {
         }
 
         // Eliminar juegos anteriores de esta edición
-        await pool.query('DELETE FROM torneo_juegos WHERE torneo_id = ?', [idEdicion]);
+        await connection.query('DELETE FROM torneo_juegos WHERE torneo_id = ?', [idEdicion]);
 
         // Insertar los nuevos juegos
         for (const juegoId of juegos) {
-            await pool.query(
+            await connection.query(
                 'INSERT INTO torneo_juegos (torneo_id, juego_id) VALUES (?, ?)',
                 [idEdicion, juegoId]
             );
@@ -279,7 +284,7 @@ export const asignarJugadores = async (req, res) => {
         }
 
         // Verificar que la edición existe
-        const [existingEdicion] = await pool.query(
+        const [existingEdicion] = await connection.query(
             'SELECT * FROM edicion WHERE idEdicion = ?',
             [idEdicion]
         );
@@ -292,11 +297,11 @@ export const asignarJugadores = async (req, res) => {
         }
 
         // Eliminar jugadores anteriores de esta edición
-        await pool.query('DELETE FROM torneo_participantes WHERE idEdicion = ?', [idEdicion]);
+        await connection.query('DELETE FROM torneo_participantes WHERE idEdicion = ?', [idEdicion]);
 
         // Insertar los nuevos jugadores
         for (const nickname of jugadores) {
-            await pool.query(
+            await connection.query(
                 'INSERT INTO torneo_participantes (idEdicion, jugador_nickname) VALUES (?, ?)',
                 [idEdicion, nickname]
             );
@@ -321,7 +326,7 @@ export const getJuegosByEdicion = async (req, res) => {
     try {
         const { idEdicion } = req.params;
 
-        const [juegos] = await pool.query(`
+        const [juegos] = await connection.query(`
             SELECT j.*, c.nombre as categoria_nombre 
             FROM juegos j 
             INNER JOIN torneo_juegos tj ON j.id = tj.juego_id 
@@ -350,7 +355,7 @@ export const getJugadoresByEdicion = async (req, res) => {
     try {
         const { idEdicion } = req.params;
 
-        const [jugadores] = await pool.query(`
+        const [jugadores] = await connection.query(`
             SELECT u.nickname, u.email, u.foto, u.descripcion 
             FROM usuarios u 
             INNER JOIN torneo_participantes tp ON u.nickname = tp.jugador_nickname 

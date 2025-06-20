@@ -1,11 +1,11 @@
-import { pool } from '../config/db.js';
+import connection from '../db.js';
 import jwt from 'jsonwebtoken';
 import { cloudinary } from '../config/cloudinary.js';
 
 export const getAllLogros = async (req, res) => {
     try {
         console.log('Obteniendo todos los logros...'); // Debug log
-        const [logros] = await pool.query('SELECT * FROM logros ORDER BY nombre ASC');
+        const [logros] = await connection.query('SELECT * FROM logros ORDER BY nombre ASC');
         console.log('Logros obtenidos de la BD:', logros); // Debug log
         
         return res.status(200).json({
@@ -26,7 +26,7 @@ export const getAllLogros = async (req, res) => {
 export const getLogroById = async (req, res) => {
     try {
         const { idLogros } = req.params;
-        const [logros] = await pool.query(
+        const [logros] = await connection.query(
             'SELECT * FROM logros WHERE idlogros = ?',
             [idLogros]
         );
@@ -78,12 +78,12 @@ export const createLogro = async (req, res) => {
             }
         }
 
-        const [result] = await pool.query(
+        const [result] = await connection.query(
             'INSERT INTO logros (nombre, descripcion, foto) VALUES (?, ?, ?)',
             [nombre, descripcion, fotoURL]
         );
 
-        const [nuevoLogro] = await pool.query(
+        const [nuevoLogro] = await connection.query(
             'SELECT * FROM logros WHERE idlogros = ?',
             [result.insertId]
         );
@@ -110,7 +110,7 @@ export const updateLogro = async (req, res) => {
         let fotoURL = null;
 
         // Verificar que el logro existe
-        const [logro] = await pool.query(
+        const [logro] = await connection.query(
             'SELECT * FROM logros WHERE idlogros = ?',
             [idLogros]
         );
@@ -141,12 +141,12 @@ export const updateLogro = async (req, res) => {
         }
 
         // Actualizar el logro
-        await pool.query(
+        await connection.query(
             'UPDATE logros SET nombre = ?, descripcion = ?, foto = COALESCE(?, foto) WHERE idlogros = ?',
             [nombre, descripcion, fotoURL, idLogros]
         );
 
-        const [logroActualizado] = await pool.query(
+        const [logroActualizado] = await connection.query(
             'SELECT * FROM logros WHERE idlogros = ?',
             [idLogros]
         );
@@ -171,7 +171,7 @@ export const deleteLogro = async (req, res) => {
         const { idLogros } = req.params;
         
         // Verificar si el logro existe
-        const [existingLogro] = await pool.query(
+        const [existingLogro] = await connection.query(
             'SELECT * FROM logros WHERE idlogros = ?',
             [idLogros]
         );
@@ -184,7 +184,7 @@ export const deleteLogro = async (req, res) => {
         }
 
         // Eliminar el logro
-        await pool.query(
+        await connection.query(
             'DELETE FROM logros WHERE idlogros = ?',
             [idLogros]
         );

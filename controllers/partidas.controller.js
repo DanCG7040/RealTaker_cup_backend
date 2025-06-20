@@ -1,4 +1,4 @@
-import db from '../db.js';
+import connection from '../db.js';
 
 // Obtener la última edición creada (en lugar de ediciones activas)
 const getEdicionesActivas = async (req, res) => {
@@ -10,7 +10,7 @@ const getEdicionesActivas = async (req, res) => {
       LIMIT 1
     `;
     
-    const [rows] = await db.execute(query);
+    const [rows] = await connection.execute(query);
     
     res.json({
       success: true,
@@ -47,7 +47,7 @@ const getJugadoresByEdicion = async (req, res) => {
       ORDER BY u.nickname
     `;
     
-    const [rows] = await db.execute(query, [idEdicion]);
+    const [rows] = await connection.execute(query, [idEdicion]);
     
     res.json({
       success: true,
@@ -82,7 +82,7 @@ const getPerfilJugador = async (req, res) => {
       WHERE nickname = ? AND rol = 2
     `;
     
-    const [rows] = await db.execute(query, [nickname]);
+    const [rows] = await connection.execute(query, [nickname]);
     
     if (rows.length === 0) {
       return res.status(404).json({
@@ -131,7 +131,7 @@ const createPartida = async (req, res) => {
       SELECT idEdicion FROM edicion 
       WHERE idEdicion = ?
     `;
-    const [edicionRows] = await db.execute(edicionQuery, [torneo_id]);
+    const [edicionRows] = await connection.execute(edicionQuery, [torneo_id]);
     
     if (edicionRows.length === 0) {
       return res.status(400).json({
@@ -142,7 +142,7 @@ const createPartida = async (req, res) => {
     
     // Validar que el juego existe
     const juegoQuery = 'SELECT id FROM juegos WHERE id = ?';
-    const [juegoRows] = await db.execute(juegoQuery, [juego_id]);
+    const [juegoRows] = await connection.execute(juegoQuery, [juego_id]);
     
     if (juegoRows.length === 0) {
       return res.status(400).json({
@@ -156,7 +156,7 @@ const createPartida = async (req, res) => {
       SELECT jugador_nickname FROM torneo_participantes 
       WHERE idEdicion = ? AND jugador_nickname IN (${jugadores.map(() => '?').join(',')})
     `;
-    const [jugadoresRows] = await db.execute(jugadoresQuery, [torneo_id, ...jugadores]);
+    const [jugadoresRows] = await connection.execute(jugadoresQuery, [torneo_id, ...jugadores]);
     
     if (jugadoresRows.length !== jugadores.length) {
       return res.status(400).json({
@@ -166,7 +166,7 @@ const createPartida = async (req, res) => {
     }
     
     // Iniciar transacción
-    await db.query('START TRANSACTION');
+    await connection.query('START TRANSACTION');
     
     try {
       // Crear la partida
@@ -175,7 +175,7 @@ const createPartida = async (req, res) => {
         VALUES (?, ?, ?, ?, ?, ?)
       `;
       
-      const [partidaResult] = await db.execute(insertPartidaQuery, [
+      const [partidaResult] = await connection.execute(insertPartidaQuery, [
         torneo_id, juego_id, fecha, tipo, fase || 'Grupos', video_url || ''
       ]);
       
@@ -189,11 +189,11 @@ const createPartida = async (req, res) => {
         `;
         
         for (const jugador of jugadores) {
-          await db.execute(insertParticipantesQuery, [partidaId, jugador]);
+          await connection.execute(insertParticipantesQuery, [partidaId, jugador]);
         }
       }
       
-      await db.query('COMMIT');
+      await connection.query('COMMIT');
       
       res.json({
         success: true,
@@ -210,7 +210,7 @@ const createPartida = async (req, res) => {
         }
       });
     } catch (error) {
-      await db.query('ROLLBACK');
+      await connection.query('ROLLBACK');
       throw error;
     }
   } catch (error) {
@@ -234,7 +234,7 @@ const getAllPartidas = async (req, res) => {
       ORDER BY p.fecha DESC
     `;
     
-    const [rows] = await db.execute(query);
+    const [rows] = await connection.execute(query);
     
     // Para cada partida, obtener sus jugadores participantes y verificar si tiene resultados
     const partidasConJugadores = await Promise.all(rows.map(async (partida) => {
@@ -246,11 +246,11 @@ const getAllPartidas = async (req, res) => {
         ORDER BY u.nickname
       `;
       
-      const [jugadoresRows] = await db.execute(jugadoresQuery, [partida.id]);
+      const [jugadoresRows] = await connection.execute(jugadoresQuery, [partida.id]);
       
       // Verificar si la partida tiene resultados
       const resultadosQuery = 'SELECT COUNT(*) as count FROM resultados_partidas WHERE partida_id = ?';
-      const [resultadosRows] = await db.execute(resultadosQuery, [partida.id]);
+      const [resultadosRows] = await connection.execute(resultadosQuery, [partida.id]);
       const tieneResultado = resultadosRows[0].count > 0;
       
       return {
@@ -296,7 +296,7 @@ const getPartidaById = async (req, res) => {
       WHERE p.id = ?
     `;
     
-    const [rows] = await db.execute(query, [id]);
+    const [rows] = await connection.execute(query, [id]);
     
     if (rows.length === 0) {
       return res.status(404).json({
@@ -353,7 +353,7 @@ const updatePartida = async (req, res) => {
       SELECT idEdicion FROM edicion 
       WHERE idEdicion = ?
     `;
-    const [edicionRows] = await db.execute(edicionQuery, [torneo_id]);
+    const [edicionRows] = await connection.execute(edicionQuery, [torneo_id]);
     
     if (edicionRows.length === 0) {
       return res.status(400).json({
@@ -364,7 +364,7 @@ const updatePartida = async (req, res) => {
     
     // Validar que el juego existe
     const juegoQuery = 'SELECT id FROM juegos WHERE id = ?';
-    const [juegoRows] = await db.execute(juegoQuery, [juego_id]);
+    const [juegoRows] = await connection.execute(juegoQuery, [juego_id]);
     
     if (juegoRows.length === 0) {
       return res.status(400).json({
@@ -378,7 +378,7 @@ const updatePartida = async (req, res) => {
       SELECT jugador_nickname FROM torneo_participantes 
       WHERE idEdicion = ? AND jugador_nickname IN (${jugadores.map(() => '?').join(',')})
     `;
-    const [jugadoresRows] = await db.execute(jugadoresQuery, [torneo_id, ...jugadores]);
+    const [jugadoresRows] = await connection.execute(jugadoresQuery, [torneo_id, ...jugadores]);
     
     if (jugadoresRows.length !== jugadores.length) {
       return res.status(400).json({
@@ -389,7 +389,7 @@ const updatePartida = async (req, res) => {
     
     // Verificar que la partida existe
     const partidaQuery = 'SELECT id FROM partidas WHERE id = ?';
-    const [partidaRows] = await db.execute(partidaQuery, [id]);
+    const [partidaRows] = await connection.execute(partidaQuery, [id]);
     
     if (partidaRows.length === 0) {
       return res.status(404).json({
@@ -399,7 +399,7 @@ const updatePartida = async (req, res) => {
     }
     
     // Iniciar transacción
-    await db.query('START TRANSACTION');
+    await connection.query('START TRANSACTION');
     
     try {
       // Actualizar la partida
@@ -409,13 +409,13 @@ const updatePartida = async (req, res) => {
         WHERE id = ?
       `;
       
-      const [result] = await db.execute(updateQuery, [
+      const [result] = await connection.execute(updateQuery, [
         torneo_id, juego_id, fecha, tipo, fase || 'Grupos', video_url || '', id
       ]);
       
       // Eliminar participantes actuales
       const deleteParticipantesQuery = 'DELETE FROM participantes_partida WHERE partida_id = ?';
-      await db.execute(deleteParticipantesQuery, [id]);
+      await connection.execute(deleteParticipantesQuery, [id]);
       
       // Insertar nuevos participantes
       if (jugadores.length > 0) {
@@ -425,11 +425,11 @@ const updatePartida = async (req, res) => {
         `;
         
         for (const jugador of jugadores) {
-          await db.execute(insertParticipantesQuery, [id, jugador]);
+          await connection.execute(insertParticipantesQuery, [id, jugador]);
         }
       }
       
-      await db.query('COMMIT');
+      await connection.query('COMMIT');
       
       res.json({
         success: true,
@@ -446,7 +446,7 @@ const updatePartida = async (req, res) => {
         }
       });
     } catch (error) {
-      await db.query('ROLLBACK');
+      await connection.query('ROLLBACK');
       throw error;
     }
   } catch (error) {
@@ -472,37 +472,37 @@ const deletePartida = async (req, res) => {
     }
     
     // Iniciar transacción
-    await db.query('START TRANSACTION');
+    await connection.query('START TRANSACTION');
     
     try {
       // Eliminar resultados primero (por la foreign key)
       const deleteResultadosQuery = 'DELETE FROM resultados_partidas WHERE partida_id = ?';
-      await db.execute(deleteResultadosQuery, [id]);
+      await connection.execute(deleteResultadosQuery, [id]);
       
       // Eliminar participantes (por la foreign key)
       const deleteParticipantesQuery = 'DELETE FROM participantes_partida WHERE partida_id = ?';
-      await db.execute(deleteParticipantesQuery, [id]);
+      await connection.execute(deleteParticipantesQuery, [id]);
       
       // Eliminar la partida
       const deletePartidaQuery = 'DELETE FROM partidas WHERE id = ?';
-      const [result] = await db.execute(deletePartidaQuery, [id]);
+      const [result] = await connection.execute(deletePartidaQuery, [id]);
       
       if (result.affectedRows === 0) {
-        await db.query('ROLLBACK');
+        await connection.query('ROLLBACK');
         return res.status(404).json({
           success: false,
           message: 'Partida no encontrada'
         });
       }
       
-      await db.query('COMMIT');
+      await connection.query('COMMIT');
       
       res.json({
         success: true,
         message: 'Partida eliminada exitosamente'
       });
     } catch (error) {
-      await db.query('ROLLBACK');
+      await connection.query('ROLLBACK');
       throw error;
     }
   } catch (error) {
@@ -542,7 +542,7 @@ const registrarResultado = async (req, res) => {
       INNER JOIN edicion e ON p.torneo_id = e.idEdicion 
       WHERE p.id = ?
     `;
-    const [partidaRows] = await db.execute(partidaQuery, [id]);
+    const [partidaRows] = await connection.execute(partidaQuery, [id]);
     
     if (partidaRows.length === 0) {
       return res.status(404).json({
@@ -573,12 +573,12 @@ const registrarResultado = async (req, res) => {
     }
     
     // Iniciar transacción
-    await db.query('START TRANSACTION');
+    await connection.query('START TRANSACTION');
     
     try {
       // Eliminar resultados anteriores si existen
       const deleteResultadosQuery = 'DELETE FROM resultados_partidas WHERE partida_id = ?';
-      await db.execute(deleteResultadosQuery, [id]);
+      await connection.execute(deleteResultadosQuery, [id]);
       
       // Insertar nuevos resultados
       const insertResultadoQuery = `
@@ -587,7 +587,7 @@ const registrarResultado = async (req, res) => {
       `;
       
       for (const resultado of resultados) {
-        await db.execute(insertResultadoQuery, [
+        await connection.execute(insertResultadoQuery, [
           id,
           resultado.jugador_nickname,
           resultado.posicion,
@@ -604,7 +604,7 @@ const registrarResultado = async (req, res) => {
             SELECT id FROM tabla_general 
             WHERE idEdicion = ? AND jugador_nickname = ?
           `;
-          const [tablaRows] = await db.execute(checkTablaQuery, [partida.idEdicion, resultado.jugador_nickname]);
+          const [tablaRows] = await connection.execute(checkTablaQuery, [partida.idEdicion, resultado.jugador_nickname]);
           
           if (tablaRows.length > 0) {
             // Actualizar registro existente
@@ -615,7 +615,7 @@ const registrarResultado = async (req, res) => {
                   partidas_ganadas = partidas_ganadas + ?
               WHERE idEdicion = ? AND jugador_nickname = ?
             `;
-            await db.execute(updateTablaQuery, [
+            await connection.execute(updateTablaQuery, [
               resultado.puntos || 0,
               resultado.gano ? 1 : 0,
               partida.idEdicion,
@@ -627,7 +627,7 @@ const registrarResultado = async (req, res) => {
               INSERT INTO tabla_general (idEdicion, jugador_nickname, puntos_totales, partidas_jugadas, partidas_ganadas) 
               VALUES (?, ?, ?, 1, ?)
             `;
-            await db.execute(insertTablaQuery, [
+            await connection.execute(insertTablaQuery, [
               partida.idEdicion,
               resultado.jugador_nickname,
               resultado.puntos || 0,
@@ -637,7 +637,7 @@ const registrarResultado = async (req, res) => {
         }
       }
       
-      await db.query('COMMIT');
+      await connection.query('COMMIT');
       
       res.json({
         success: true,
@@ -649,7 +649,7 @@ const registrarResultado = async (req, res) => {
         }
       });
     } catch (error) {
-      await db.query('ROLLBACK');
+      await connection.query('ROLLBACK');
       throw error;
     }
   } catch (error) {
@@ -682,7 +682,7 @@ const getResultado = async (req, res) => {
       ORDER BY rp.posicion ASC
     `;
     
-    const [rows] = await db.execute(query, [id]);
+    const [rows] = await connection.execute(query, [id]);
     
     if (rows.length === 0) {
       return res.status(404).json({
@@ -709,29 +709,73 @@ const getResultado = async (req, res) => {
 // Limpiar tabla general
 const limpiarTablaGeneral = async (req, res) => {
   try {
-    // Iniciar transacción
-    await db.query('START TRANSACTION');
+    const deleteQuery = 'DELETE FROM tabla_general';
+    await connection.execute(deleteQuery);
     
-    try {
-      // Eliminar todos los registros de la tabla general
-      const deleteQuery = 'DELETE FROM tabla_general';
-      const [result] = await db.execute(deleteQuery);
-      
-      await db.query('COMMIT');
-      
-      res.json({
-        success: true,
-        message: 'Tabla general limpiada exitosamente',
-        data: {
-          registrosEliminados: result.affectedRows
-        }
-      });
-    } catch (error) {
-      await db.query('ROLLBACK');
-      throw error;
-    }
+    res.json({
+      success: true,
+      message: 'Tabla general limpiada exitosamente'
+    });
   } catch (error) {
     console.error('Error al limpiar tabla general:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: error.message
+    });
+  }
+};
+
+// Obtener tabla general
+const getTablaGeneral = async (req, res) => {
+  try {
+    console.log('🔍 Obteniendo tabla general...');
+    
+    // Obtener la edición activa más reciente
+    const [edicionRows] = await connection.query(`
+      SELECT idEdicion FROM edicion 
+      ORDER BY idEdicion DESC 
+      LIMIT 1
+    `);
+    
+    console.log('📋 Ediciones activas encontradas:', edicionRows.length);
+    
+    if (edicionRows.length === 0) {
+      console.log('⚠️ No hay edición activa');
+      return res.json({
+        success: true,
+        data: [],
+        message: 'No hay edición activa'
+      });
+    }
+    
+    const idEdicion = edicionRows[0].idEdicion;
+    console.log('🎯 Edición activa ID:', idEdicion);
+    
+    // Obtener tabla general ordenada por puntos
+    const [tablaRows] = await connection.query(`
+      SELECT 
+        tg.jugador_nickname,
+        tg.puntos_totales,
+        tg.partidas_jugadas,
+        tg.partidas_ganadas,
+        u.foto,
+        u.descripcion
+      FROM tabla_general tg
+      LEFT JOIN usuarios u ON tg.jugador_nickname = u.nickname
+      WHERE tg.idEdicion = ?
+      ORDER BY tg.puntos_totales DESC, tg.partidas_ganadas DESC
+    `, [idEdicion]);
+    
+    console.log('📊 Registros en tabla general:', tablaRows.length);
+    
+    res.json({
+      success: true,
+      data: tablaRows,
+      message: 'Tabla general obtenida exitosamente'
+    });
+  } catch (error) {
+    console.error('❌ Error al obtener tabla general:', error);
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor',
@@ -743,13 +787,14 @@ const limpiarTablaGeneral = async (req, res) => {
 export {
   getEdicionesActivas,
   getJugadoresByEdicion,
+  getPerfilJugador,
   createPartida,
   getAllPartidas,
   getPartidaById,
   updatePartida,
   deletePartida,
-  getPerfilJugador,
   registrarResultado,
   getResultado,
-  limpiarTablaGeneral
+  limpiarTablaGeneral,
+  getTablaGeneral
 }; 

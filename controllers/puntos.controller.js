@@ -1,4 +1,4 @@
-import db from '../db.js';
+import connection from '../db.js';
 import { v2 as cloudinary } from 'cloudinary';
 
 // Configurar Cloudinary
@@ -17,7 +17,7 @@ const getAllPuntos = async (req, res) => {
       ORDER BY tipo, posicion
     `;
     
-    const [rows] = await db.execute(query);
+    const [rows] = await connection.execute(query);
     
     res.json({
       success: true,
@@ -53,7 +53,7 @@ const getPuntosByTipo = async (req, res) => {
       ORDER BY posicion
     `;
     
-    const [rows] = await db.execute(query, [tipo]);
+    const [rows] = await connection.execute(query, [tipo]);
     
     res.json({
       success: true,
@@ -107,7 +107,7 @@ const createOrUpdatePuntos = async (req, res) => {
     }
     
     // Iniciar transacción usando query en lugar de execute
-    await db.query('START TRANSACTION');
+    await connection.query('START TRANSACTION');
     
     try {
       for (const punto of puntos) {
@@ -117,7 +117,7 @@ const createOrUpdatePuntos = async (req, res) => {
           WHERE tipo = ? AND posicion = ?
         `;
         
-        const [existingRows] = await db.execute(checkQuery, [punto.tipo, punto.posicion]);
+        const [existingRows] = await connection.execute(checkQuery, [punto.tipo, punto.posicion]);
         
         if (existingRows.length > 0) {
           // Actualizar registro existente
@@ -127,7 +127,7 @@ const createOrUpdatePuntos = async (req, res) => {
             WHERE tipo = ? AND posicion = ?
           `;
           
-          await db.execute(updateQuery, [punto.puntos, punto.tipo, punto.posicion]);
+          await connection.execute(updateQuery, [punto.puntos, punto.tipo, punto.posicion]);
         } else {
           // Crear nuevo registro
           const insertQuery = `
@@ -135,12 +135,12 @@ const createOrUpdatePuntos = async (req, res) => {
             VALUES (?, ?, ?)
           `;
           
-          await db.execute(insertQuery, [punto.tipo, punto.posicion, punto.puntos]);
+          await connection.execute(insertQuery, [punto.tipo, punto.posicion, punto.puntos]);
         }
       }
       
       // Confirmar transacción usando query
-      await db.query('COMMIT');
+      await connection.query('COMMIT');
       
       res.json({
         success: true,
@@ -151,7 +151,7 @@ const createOrUpdatePuntos = async (req, res) => {
       });
     } catch (error) {
       // Revertir transacción usando query
-      await db.query('ROLLBACK');
+      await connection.query('ROLLBACK');
       throw error;
     }
   } catch (error) {
@@ -177,7 +177,7 @@ const deletePuntos = async (req, res) => {
     }
     
     const query = 'DELETE FROM puntos_por_tipo_partida WHERE id = ?';
-    const [result] = await db.execute(query, [id]);
+    const [result] = await connection.execute(query, [id]);
     
     if (result.affectedRows === 0) {
       return res.status(404).json({

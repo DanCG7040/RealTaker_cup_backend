@@ -12,15 +12,30 @@ import comodinesRoutes from './routes/comodines.routes.js';
 import edicionRoutes from './routes/edicion.routes.js';
 import puntosRoutes from './routes/puntos.routes.js';
 import partidasRoutes from './routes/partidas.routes.js';
+import entradasRoutes from './routes/entradas.routes.js';
+import configuracionRoutes from './routes/configuracion.routes.js';
+import torneoRoutes from './routes/torneo.routes.js';
+import ruletaRoutes from './routes/ruleta.routes.js';
+import usuariosRoutes from './routes/usuarios.routes.js';
+import historicoRoutes from './routes/historico.routes.js';
 import connection from './db.js';
-import { uploadPerfiles } from './config/cloudinary.js';
 
 // Cargar variables de entorno
 dotenv.config();
 
-// Configurar multer con Cloudinary para uploads generales
+// Configurar multer con almacenamiento local
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/')
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+    cb(null, file.fieldname + '-' + uniqueSuffix + '.' + file.originalname.split('.').pop())
+  }
+});
+
 const upload = multer({ 
-  storage: uploadPerfiles.storage,
+  storage: storage,
   limits: {
     fileSize: 2 * 1024 * 1024 // Límite de 2MB
   }
@@ -131,6 +146,12 @@ app.use('/api/comodines', comodinesRoutes);
 app.use('/api/edicion', edicionRoutes);
 app.use('/api/puntos', puntosRoutes);
 app.use('/api/partidas', partidasRoutes);
+app.use('/api/entradas', entradasRoutes);
+app.use('/api/configuracion', configuracionRoutes);
+app.use('/api/torneo', torneoRoutes);
+app.use('/api/ruleta', ruletaRoutes);
+app.use('/api/usuarios', usuariosRoutes);
+app.use('/api/historico', historicoRoutes);
 
 // Middleware para rutas no encontradas
 app.use((req, res) => {
@@ -173,7 +194,7 @@ app.use((err, req, res, next) => {
 });
 
 // Iniciar el servidor
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
   console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
   console.log('📁 Rutas disponibles:');
   console.log('   - /api/auth/*');
@@ -186,6 +207,11 @@ const server = app.listen(PORT, () => {
   console.log('   - /api/edicion/*');
   console.log('   - /api/puntos/*');
   console.log('   - /api/partidas/*');
+  console.log('   - /api/entradas/*');
+  console.log('   - /api/configuracion/*');
+  console.log('   - /api/torneo/*');
+  console.log('   - /api/ruleta/*');
+  console.log('   - /api/usuarios/*');
   console.log('   - /api/upload (Cloudinary)');
 });
 

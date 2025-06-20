@@ -1,12 +1,10 @@
-import { pool } from '../config/db.js';
+import connection from '../db.js';
 import jwt from 'jsonwebtoken';
 import { cloudinary } from '../config/cloudinary.js';
 
 export const getAllComodines = async (req, res) => {
     try {
-        console.log('Obteniendo todos los comodines...'); // Debug log
-        const [comodines] = await pool.query('SELECT * FROM comodines ORDER BY nombre ASC');
-        console.log('Comodines obtenidos de la BD:', comodines); // Debug log
+        const [comodines] = await connection.query('SELECT * FROM comodines ORDER BY nombre ASC');
         
         return res.status(200).json({
             success: true,
@@ -26,7 +24,7 @@ export const getAllComodines = async (req, res) => {
 export const getComodinById = async (req, res) => {
     try {
         const { idComodines } = req.params;
-        const [comodines] = await pool.query(
+        const [comodines] = await connection.query(
             'SELECT * FROM comodines WHERE idcomodines = ?',
             [idComodines]
         );
@@ -78,12 +76,12 @@ export const createComodin = async (req, res) => {
             }
         }
 
-        const [result] = await pool.query(
+        const [result] = await connection.query(
             'INSERT INTO comodines (nombre, descripcion, foto) VALUES (?, ?, ?)',
             [nombre, descripcion, fotoURL]
         );
 
-        const [nuevoComodin] = await pool.query(
+        const [nuevoComodin] = await connection.query(
             'SELECT * FROM comodines WHERE idcomodines = ?',
             [result.insertId]
         );
@@ -110,7 +108,7 @@ export const updateComodin = async (req, res) => {
         let fotoURL = null;
 
         // Verificar que el comodín existe
-        const [comodin] = await pool.query(
+        const [comodin] = await connection.query(
             'SELECT * FROM comodines WHERE idcomodines = ?',
             [idComodines]
         );
@@ -141,12 +139,12 @@ export const updateComodin = async (req, res) => {
         }
 
         // Actualizar el comodín
-        await pool.query(
+        await connection.query(
             'UPDATE comodines SET nombre = ?, descripcion = ?, foto = COALESCE(?, foto) WHERE idcomodines = ?',
             [nombre, descripcion, fotoURL, idComodines]
         );
 
-        const [comodinActualizado] = await pool.query(
+        const [comodinActualizado] = await connection.query(
             'SELECT * FROM comodines WHERE idcomodines = ?',
             [idComodines]
         );
@@ -171,7 +169,7 @@ export const deleteComodin = async (req, res) => {
         const { idComodines } = req.params;
         
         // Verificar si el comodín existe
-        const [existingComodin] = await pool.query(
+        const [existingComodin] = await connection.query(
             'SELECT * FROM comodines WHERE idcomodines = ?',
             [idComodines]
         );
@@ -184,7 +182,7 @@ export const deleteComodin = async (req, res) => {
         }
 
         // Eliminar el comodín
-        await pool.query(
+        await connection.query(
             'DELETE FROM comodines WHERE idcomodines = ?',
             [idComodines]
         );
@@ -200,4 +198,24 @@ export const deleteComodin = async (req, res) => {
             error: 'Error interno del servidor'
         });
     }
+};
+
+// Obtener todos los comodines (público)
+export const getAllPublic = async (req, res) => {
+  try {
+    const [rows] = await connection.query(
+      'SELECT * FROM comodines WHERE visible = 1 ORDER BY nombre ASC'
+    );
+    
+    res.json({
+      success: true,
+      data: rows
+    });
+  } catch (error) {
+    console.error('Error al obtener comodines:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor'
+    });
+  }
 }; 

@@ -2,6 +2,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import multer from 'multer';
 import dotenv from 'dotenv';
+import fs from 'fs';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -12,6 +13,27 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
+
+// Función para subir archivos a Cloudinary
+export const uploadToCloudinary = async (filePath) => {
+  try {
+    const result = await cloudinary.uploader.upload(filePath, {
+      folder: 'general',
+      allowed_formats: ['jpg', 'jpeg', 'png', 'gif'],
+      transformation: [{ width: 800, height: 600, crop: 'limit' }]
+    });
+    
+    // Eliminar el archivo temporal después de subirlo
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('Error al subir a Cloudinary:', error);
+    throw error;
+  }
+};
 
 // Configurar el almacenamiento para juegos
 const storageJuegos = new CloudinaryStorage({

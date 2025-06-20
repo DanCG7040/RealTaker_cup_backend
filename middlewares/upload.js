@@ -2,7 +2,7 @@ import multer from 'multer';
 
 const storage = multer.memoryStorage();
 
-export const uploadMiddleware = multer({
+const upload = multer({
   storage: storage,
   limits: {
     fileSize: 2 * 1024 * 1024 // 2MB
@@ -13,4 +13,7 @@ export const uploadMiddleware = multer({
     }
     cb(null, true);
   }
-}).single('foto');
+});
+
+export const uploadMiddleware = upload.single('foto');
+export default upload;
