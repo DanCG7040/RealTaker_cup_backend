@@ -28,3 +28,12 @@ export const hasRole = (...rolesPermitidos) => {
     next();
   };
 };
+
+// Verifica si el usuario es administrador (rol 0)
+export const isAdmin = (req, res, next) => {
+  const rolUsuario = req.usuario?.rol;
+  if (rolUsuario !== 0) {
+    return res.status(403).json({ message: 'Acceso denegado: se requiere rol de administrador' });
+  }
+  next();
+};

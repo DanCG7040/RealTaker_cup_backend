@@ -9,6 +9,9 @@ import categoriaRoutes from './routes/categoria.routes.js';
 import juegosRoutes from './routes/juegos.routes.js';
 import logrosRoutes from './routes/logros.routes.js';
 import comodinesRoutes from './routes/comodines.routes.js';
+import edicionRoutes from './routes/edicion.routes.js';
+import puntosRoutes from './routes/puntos.routes.js';
+import partidasRoutes from './routes/partidas.routes.js';
 import connection from './db.js';
 import { uploadPerfiles } from './config/cloudinary.js';
 
@@ -85,7 +88,9 @@ app.get('/api/test', (req, res) => {
       categoria: '/api/categoria/*',
       juegos: '/api/juegos/*',
       logros: '/api/logros/*',
-      comodines: '/api/comodines/*'
+      comodines: '/api/comodines/*',
+      edicion: '/api/edicion/*',
+      puntos: '/api/puntos/*'
     }
   });
 });
@@ -123,6 +128,9 @@ app.use('/api/categoria', categoriaRoutes);
 app.use('/api/juegos', juegosRoutes);
 app.use('/api/logros', logrosRoutes);
 app.use('/api/comodines', comodinesRoutes);
+app.use('/api/edicion', edicionRoutes);
+app.use('/api/puntos', puntosRoutes);
+app.use('/api/partidas', partidasRoutes);
 
 // Middleware para rutas no encontradas
 app.use((req, res) => {
@@ -175,6 +183,9 @@ const server = app.listen(PORT, () => {
   console.log('   - /api/juegos/*');
   console.log('   - /api/logros/*');
   console.log('   - /api/comodines/*');
+  console.log('   - /api/edicion/*');
+  console.log('   - /api/puntos/*');
+  console.log('   - /api/partidas/*');
   console.log('   - /api/upload (Cloudinary)');
 });
 
