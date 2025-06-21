@@ -6,7 +6,9 @@ import {
   deleteRuletaItem,
   getRuletaConfiguracion,
   updateRuletaConfiguracion,
-  girarRuleta
+  girarRuleta,
+  getHistorialGiros,
+  getEstadisticasGiros
 } from '../controllers/ruleta.controller.js';
 import { verifyToken, checkRole } from '../middlewares/auth.js';
 import upload from '../middlewares/upload.js';
@@ -20,13 +22,15 @@ router.put('/configuracion', verifyToken, checkRole([0]), updateRuletaConfigurac
 // Ruta pública para verificar estado de ruleta (sin autenticación)
 router.get('/estado', getRuletaConfiguracion);
 
-// Ruta para jugadores (girar ruleta)
-router.post('/girar', verifyToken, checkRole([2]), girarRuleta);
+// Rutas para jugadores y administradores (girar ruleta, historial, estadísticas)
+router.post('/girar', verifyToken, checkRole([0, 2]), girarRuleta);
+router.get('/historial', verifyToken, checkRole([0, 2]), getHistorialGiros);
+router.get('/estadisticas', verifyToken, checkRole([0, 2]), getEstadisticasGiros);
 
 // Rutas para administradores (con parámetros)
 router.get('/', verifyToken, checkRole([0]), getRuletaItems);
-router.post('/', verifyToken, checkRole([0]), upload.single('imagen'), createRuletaItem);
-router.put('/:id', verifyToken, checkRole([0]), upload.single('imagen'), updateRuletaItem);
+router.post('/', verifyToken, checkRole([0]), createRuletaItem);
+router.put('/:id', verifyToken, checkRole([0]), updateRuletaItem);
 router.delete('/:id', verifyToken, checkRole([0]), deleteRuletaItem);
 
 export default router; 
