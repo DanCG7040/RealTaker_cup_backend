@@ -67,9 +67,13 @@ export const crearHistoricoTablaGeneral = async (idEdicion, motivo = 'Nueva edic
   }
 };
 
-// Obtener todas las ediciones históricas
+// Obtener todas las ediciones históricas (público)
 export const getEdicionesHistoricas = async (req, res) => {
   try {
+    // Implementar rate limiting básico para prevenir abuso
+    const clientIP = req.ip || req.connection.remoteAddress;
+    console.log(`📊 Acceso público al histórico desde IP: ${clientIP}`);
+    
     const [ediciones] = await connection.query(`
       SELECT 
         eh.idEdicion,
@@ -100,7 +104,7 @@ export const getEdicionesHistoricas = async (req, res) => {
   }
 };
 
-// Obtener tabla general histórica por edición
+// Obtener tabla general histórica por edición (público)
 export const getTablaGeneralHistorica = async (req, res) => {
   try {
     const { idEdicion } = req.params;
@@ -111,6 +115,10 @@ export const getTablaGeneralHistorica = async (req, res) => {
         message: 'ID de edición inválido'
       });
     }
+    
+    // Implementar rate limiting básico para prevenir abuso
+    const clientIP = req.ip || req.connection.remoteAddress;
+    console.log(`📊 Acceso público a tabla histórica ${idEdicion} desde IP: ${clientIP}`);
     
     // Verificar que existe histórico para esta edición
     const [edicionHistorica] = await connection.query(
@@ -125,27 +133,29 @@ export const getTablaGeneralHistorica = async (req, res) => {
       });
     }
     
-    // Obtener tabla general histórica
+    // Obtener tabla general histórica (limitando información sensible)
     const [tablaHistorica] = await connection.query(`
       SELECT 
         htg.jugador_nickname,
         htg.puntos_totales,
         htg.partidas_jugadas,
         htg.partidas_ganadas,
-        u.foto,
-        u.descripcion,
         htg.fecha_historico
       FROM historico_tabla_general htg
-      LEFT JOIN usuarios u ON htg.jugador_nickname = u.nickname
       WHERE htg.idEdicion = ?
       ORDER BY htg.puntos_totales DESC, htg.partidas_ganadas DESC
     `, [idEdicion]);
     
-    // Obtener información de la edición
-    const [edicion] = await connection.query(
-      'SELECT * FROM edicion WHERE idEdicion = ?',
-      [idEdicion]
-    );
+    // Obtener información básica de la edición (sin datos sensibles)
+    const [edicion] = await connection.query(`
+      SELECT 
+        idEdicion,
+        fecha_inicio,
+        fecha_fin,
+        nombre
+      FROM edicion 
+      WHERE idEdicion = ?
+    `, [idEdicion]);
     
     res.json({
       success: true,

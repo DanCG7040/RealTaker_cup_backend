@@ -17,20 +17,20 @@ import { verifyToken, checkRole } from '../middlewares/auth.js';
 
 const router = express.Router();
 
-// Rutas públicas
+// Rutas públicas (para histórico y acceso general)
 router.get('/ediciones-activas', getEdicionesActivas);
 router.get('/jugadores/:idEdicion', getJugadoresByEdicion);
 router.get('/perfil/:nickname', getPerfilJugador);
 router.get('/tabla-general', getTablaGeneral);
+router.get('/limpiar-tabla-general', verifyToken, checkRole([0]), limpiarTablaGeneral); // Ruta específica antes de /:id
+router.get('/', getAllPartidas); // Público para histórico
+router.get('/:id', getPartidaById); // Público para histórico
+router.get('/:id/resultado', getResultado); // Público para histórico
 
-// Rutas protegidas
-router.get('/', verifyToken, checkRole([0]), getAllPartidas);
-router.get('/:id', verifyToken, checkRole([0]), getPartidaById);
+// Rutas protegidas (solo para administradores)
 router.post('/', verifyToken, checkRole([0]), createPartida);
 router.put('/:id', verifyToken, checkRole([0]), updatePartida);
 router.delete('/:id', verifyToken, checkRole([0]), deletePartida);
 router.post('/:id/resultado', verifyToken, checkRole([0]), registrarResultado);
-router.get('/:id/resultado', verifyToken, checkRole([0]), getResultado);
-router.delete('/limpiar-tabla-general', verifyToken, checkRole([0]), limpiarTablaGeneral);
 
 export default router; 

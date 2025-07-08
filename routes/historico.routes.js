@@ -3,14 +3,13 @@ import {
   getEdicionesHistoricas, 
   getTablaGeneralHistorica 
 } from '../controllers/historico.controller.js';
-import { verifyToken } from '../middlewares/auth.js';
 
 const router = express.Router();
 
-// Obtener todas las ediciones históricas
-router.get('/ediciones', verifyToken, getEdicionesHistoricas);
+// Obtener todas las ediciones históricas (público)
+router.get('/ediciones', getEdicionesHistoricas);
 
-// Obtener tabla general histórica por edición
-router.get('/tabla-general/:idEdicion', verifyToken, getTablaGeneralHistorica);
+// Obtener tabla general histórica por edición (público)
+router.get('/tabla-general/:idEdicion', getTablaGeneralHistorica);
 
 export default router; 
