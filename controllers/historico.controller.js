@@ -151,8 +151,7 @@ export const getTablaGeneralHistorica = async (req, res) => {
       SELECT 
         idEdicion,
         fecha_inicio,
-        fecha_fin,
-        nombre
+        fecha_fin
       FROM edicion 
       WHERE idEdicion = ?
     `, [idEdicion]);

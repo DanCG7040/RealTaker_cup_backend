@@ -201,3 +201,33 @@ export const deleteLogro = async (req, res) => {
         });
     }
 }; 
+
+// Obtener logros destacados para el inicio
+export const getLogrosDestacados = async (req, res) => {
+    try {
+        // Obtener logros ordenados por nombre (ya que no existe la tabla usuarios_logros)
+        const query = `
+            SELECT l.*, 0 as usuarios_conseguidos
+            FROM logros l
+            ORDER BY l.nombre ASC
+            LIMIT 5
+        `;
+        
+        const [logros] = await connection.query(query);
+        
+        return res.status(200).json({
+            success: true,
+            data: logros,
+            message: 'Logros destacados obtenidos exitosamente'
+        });
+    } catch (error) {
+        console.error('Error al obtener logros destacados:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error al obtener los logros destacados',
+            error: error.message
+        });
+    }
+};
+
+ 

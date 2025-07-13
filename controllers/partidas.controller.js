@@ -784,6 +784,100 @@ const getTablaGeneral = async (req, res) => {
   }
 };
 
+// Obtener estadísticas reales del torneo
+const getEstadisticasReales = async (req, res) => {
+  try {
+    // Obtener la edición actual (la más reciente)
+    const edicionQuery = `
+      SELECT idEdicion, fecha_inicio, fecha_fin 
+      FROM edicion 
+      ORDER BY idEdicion DESC 
+      LIMIT 1
+    `;
+    const [ediciones] = await connection.execute(edicionQuery);
+    
+    if (ediciones.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          totalPartidas: 0,
+          partidasJugadas: 0,
+          partidasPendientes: 0,
+          jugadoresActivos: 0,
+          progresoTorneo: 0,
+          edicionActual: null
+        }
+      });
+    }
+    
+    const edicionActual = ediciones[0];
+    
+    // Total de partidas en la edición actual
+    const totalPartidasQuery = `
+      SELECT COUNT(*) as total 
+      FROM partidas 
+      WHERE torneo_id = ?
+    `;
+    const [totalPartidas] = await connection.execute(totalPartidasQuery, [edicionActual.idEdicion]);
+    
+    // Partidas jugadas (con resultados)
+    const partidasJugadasQuery = `
+      SELECT COUNT(DISTINCT p.id) as jugadas
+      FROM partidas p
+      INNER JOIN resultados_partidas rp ON p.id = rp.partida_id
+      WHERE p.torneo_id = ?
+    `;
+    const [partidasJugadas] = await connection.execute(partidasJugadasQuery, [edicionActual.idEdicion]);
+    
+    // Jugadores activos en la edición
+    const jugadoresActivosQuery = `
+      SELECT COUNT(DISTINCT tp.jugador_nickname) as activos
+      FROM torneo_participantes tp
+      WHERE tp.idEdicion = ?
+    `;
+    const [jugadoresActivos] = await connection.execute(jugadoresActivosQuery, [edicionActual.idEdicion]);
+    
+    // Calcular progreso del torneo
+    const totalPartidasCount = totalPartidas[0].total;
+    const partidasJugadasCount = partidasJugadas[0].jugadas;
+    const progresoTorneo = totalPartidasCount > 0 ? Math.round((partidasJugadasCount / totalPartidasCount) * 100) : 0;
+    
+    // Fechas de la edición
+    const fechaInicio = new Date(edicionActual.fecha_inicio);
+    const fechaFin = new Date(edicionActual.fecha_fin);
+    const fechaActual = new Date();
+    
+    // Calcular progreso temporal
+    const tiempoTotal = fechaFin.getTime() - fechaInicio.getTime();
+    const tiempoTranscurrido = fechaActual.getTime() - fechaInicio.getTime();
+    const progresoTemporal = Math.min(Math.max((tiempoTranscurrido / tiempoTotal) * 100, 0), 100);
+    
+    res.json({
+      success: true,
+      data: {
+        totalPartidas: totalPartidasCount,
+        partidasJugadas: partidasJugadasCount,
+        partidasPendientes: totalPartidasCount - partidasJugadasCount,
+        jugadoresActivos: jugadoresActivos[0].activos,
+        progresoTorneo,
+        progresoTemporal: Math.round(progresoTemporal),
+        edicionActual: {
+          id: edicionActual.idEdicion,
+          fechaInicio: edicionActual.fecha_inicio,
+          fechaFin: edicionActual.fecha_fin
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error al obtener estadísticas:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: error.message
+    });
+  }
+};
+
 export {
   getEdicionesActivas,
   getJugadoresByEdicion,
@@ -796,5 +890,6 @@ export {
   registrarResultado,
   getResultado,
   limpiarTablaGeneral,
-  getTablaGeneral
+  getTablaGeneral,
+  getEstadisticasReales
 }; 
