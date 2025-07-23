@@ -19,6 +19,7 @@ import ruletaRoutes from './routes/ruleta.routes.js';
 import usuariosRoutes from './routes/usuarios.routes.js';
 import historicoRoutes from './routes/historico.routes.js';
 import connection from './db.js';
+import videosHistoricosRoutes from './routes/videos_historicos.routes.js';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -152,6 +153,7 @@ app.use('/api/torneo', torneoRoutes);
 app.use('/api/ruleta', ruletaRoutes);
 app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/historico', historicoRoutes);
+app.use('/api/videos-historicos', videosHistoricosRoutes);
 
 // Middleware para rutas no encontradas
 app.use((req, res) => {
