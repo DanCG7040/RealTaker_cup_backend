@@ -269,4 +269,26 @@ export const obtenerTodosUsuarios = async (req, res) => {
         });
     }
 };
+
+export const updateTwitchChannel = async (req, res) => {
+    try {
+        // Puedes obtener el nickname del usuario autenticado o del body
+        const { nickname } = req.user || req.body;
+        const { twitch_channel } = req.body;
+
+        if (!twitch_channel) {
+            return res.status(400).json({ success: false, message: 'El canal de Twitch es requerido' });
+        }
+
+        await connection.query(
+            'UPDATE usuarios SET twitch_channel = ? WHERE nickname = ?',
+            [twitch_channel, nickname]
+        );
+
+        return res.json({ success: true, message: 'Canal de Twitch actualizado' });
+    } catch (error) {
+        console.error('Error al actualizar canal de Twitch:', error);
+        return res.status(500).json({ success: false, message: 'Error interno del servidor' });
+    }
+};
   

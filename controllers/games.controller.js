@@ -1,5 +1,6 @@
 import { cloudinary } from '../config/cloudinary.js';
-import { pool } from '../config/db.js';
+import express from 'express';
+import connection from '../db.js';
 
 export const updateGame = async (req, res) => {
   try {
@@ -7,7 +8,7 @@ export const updateGame = async (req, res) => {
     const { nombre, categoria } = req.body;
     
     // Obtener el juego actual para verificar si tiene una imagen
-    const [currentGame] = await pool.query('SELECT foto FROM juegos WHERE id = ?', [id]);
+    const [currentGame] = await connection.query('SELECT foto FROM juegos WHERE id = ?', [id]);
     
     let fotoUrl = currentGame[0]?.foto;
 
@@ -29,7 +30,7 @@ export const updateGame = async (req, res) => {
     }
 
     // Actualizar el juego en la base de datos
-    const [result] = await pool.query(
+    const [result] = await connection.query(
       'UPDATE juegos SET nombre = ?, categoria_id = ?, foto = ? WHERE id = ?',
       [nombre, categoria, fotoUrl, id]
     );

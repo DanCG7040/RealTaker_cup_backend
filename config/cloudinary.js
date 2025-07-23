@@ -2,6 +2,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import multer from 'multer';
 import dotenv from 'dotenv';
+import fs from 'fs';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -13,8 +14,29 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Configurar el almacenamiento
-const storage = new CloudinaryStorage({
+// Función para subir archivos a Cloudinary
+export const uploadToCloudinary = async (filePath) => {
+  try {
+    const result = await cloudinary.uploader.upload(filePath, {
+      folder: 'general',
+      allowed_formats: ['jpg', 'jpeg', 'png', 'gif'],
+      transformation: [{ width: 800, height: 600, crop: 'limit' }]
+    });
+    
+    // Eliminar el archivo temporal después de subirlo
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('Error al subir a Cloudinary:', error);
+    throw error;
+  }
+};
+
+// Configurar el almacenamiento para juegos
+const storageJuegos = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'juegos',
@@ -23,7 +45,44 @@ const storage = new CloudinaryStorage({
   }
 });
 
-// Configurar multer
-const upload = multer({ storage: storage });
+// Configurar el almacenamiento para logros
+const storageLogros = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'logros',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif'],
+    transformation: [{ width: 500, height: 500, crop: 'limit' }]
+  }
+});
 
-export { cloudinary, upload, storage }; 
+// Configurar el almacenamiento para comodines
+const storageComodines = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'comodines',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif'],
+    transformation: [{ width: 500, height: 500, crop: 'limit' }]
+  }
+});
+
+// Configurar el almacenamiento para perfiles
+const storagePerfiles = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'perfiles',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif'],
+    transformation: [{ width: 300, height: 300, crop: 'limit' }]
+  }
+});
+
+// Configurar multer para diferentes tipos de contenido
+const uploadJuegos = multer({ storage: storageJuegos });
+const uploadLogros = multer({ storage: storageLogros });
+const uploadComodines = multer({ storage: storageComodines });
+const uploadPerfiles = multer({ storage: storagePerfiles });
+
+// Mantener compatibilidad con el código existente
+const storage = storagePerfiles;
+const upload = uploadPerfiles;
+
+export { cloudinary, uploadJuegos, uploadLogros, uploadComodines, uploadPerfiles, storage, upload }; 

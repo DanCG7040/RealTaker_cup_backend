@@ -25,7 +25,7 @@ export const getComodinById = async (req, res) => {
     try {
         const { idComodines } = req.params;
         const [comodines] = await connection.query(
-            'SELECT * FROM comodines WHERE idComodines = ?',
+            'SELECT * FROM comodines WHERE idcomodines = ?',
             [idComodines]
         );
 
@@ -82,7 +82,7 @@ export const createComodin = async (req, res) => {
         );
 
         const [nuevoComodin] = await connection.query(
-            'SELECT * FROM comodines WHERE idComodines = ?',
+            'SELECT * FROM comodines WHERE idcomodines = ?',
             [result.insertId]
         );
 
@@ -109,7 +109,7 @@ export const updateComodin = async (req, res) => {
 
         // Verificar que el comodín existe
         const [comodin] = await connection.query(
-            'SELECT * FROM comodines WHERE idComodines = ?',
+            'SELECT * FROM comodines WHERE idcomodines = ?',
             [idComodines]
         );
 
@@ -140,12 +140,12 @@ export const updateComodin = async (req, res) => {
 
         // Actualizar el comodín
         await connection.query(
-            'UPDATE comodines SET nombre = ?, descripcion = ?, foto = COALESCE(?, foto) WHERE idComodines = ?',
+            'UPDATE comodines SET nombre = ?, descripcion = ?, foto = COALESCE(?, foto) WHERE idcomodines = ?',
             [nombre, descripcion, fotoURL, idComodines]
         );
 
         const [comodinActualizado] = await connection.query(
-            'SELECT * FROM comodines WHERE idComodines = ?',
+            'SELECT * FROM comodines WHERE idcomodines = ?',
             [idComodines]
         );
 
@@ -168,45 +168,54 @@ export const deleteComodin = async (req, res) => {
     try {
         const { idComodines } = req.params;
         
-        // Verificar que el comodín existe
-        const [comodin] = await connection.query(
-            'SELECT * FROM comodines WHERE idComodines = ?',
+        // Verificar si el comodín existe
+        const [existingComodin] = await connection.query(
+            'SELECT * FROM comodines WHERE idcomodines = ?',
             [idComodines]
         );
 
-        if (comodin.length === 0) {
+        if (existingComodin.length === 0) {
             return res.status(404).json({
                 success: false,
                 message: 'Comodín no encontrado'
             });
         }
 
-        // Si el comodín tiene una foto, eliminarla de Cloudinary
-        if (comodin[0].foto) {
-            try {
-                const publicId = comodin[0].foto.split('/').pop().split('.')[0];
-                await cloudinary.uploader.destroy(`comodines/${publicId}`);
-            } catch (error) {
-                console.error('Error al eliminar imagen de Cloudinary:', error);
-            }
-        }
-
         // Eliminar el comodín
         await connection.query(
-            'DELETE FROM comodines WHERE idComodines = ?',
+            'DELETE FROM comodines WHERE idcomodines = ?',
             [idComodines]
         );
 
-        return res.status(200).json({
+        res.json({
             success: true,
-            message: 'Comodín eliminado exitosamente'
+            message: 'Comodín eliminado correctamente'
         });
     } catch (error) {
         console.error('Error al eliminar comodín:', error);
-        return res.status(500).json({
+        res.status(500).json({
             success: false,
-            message: 'Error al eliminar el comodín',
-            error: error.message
+            error: 'Error interno del servidor'
         });
     }
+};
+
+// Obtener todos los comodines (público)
+export const getAllPublic = async (req, res) => {
+  try {
+    const [rows] = await connection.query(
+      'SELECT * FROM comodines WHERE visible = 1 ORDER BY nombre ASC'
+    );
+    
+    res.json({
+      success: true,
+      data: rows
+    });
+  } catch (error) {
+    console.error('Error al obtener comodines:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor'
+    });
+  }
 }; 

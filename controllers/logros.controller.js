@@ -4,7 +4,9 @@ import { cloudinary } from '../config/cloudinary.js';
 
 export const getAllLogros = async (req, res) => {
     try {
+        console.log('Obteniendo todos los logros...'); // Debug log
         const [logros] = await connection.query('SELECT * FROM logros ORDER BY nombre ASC');
+        console.log('Logros obtenidos de la BD:', logros); // Debug log
         
         return res.status(200).json({
             success: true,
@@ -25,7 +27,7 @@ export const getLogroById = async (req, res) => {
     try {
         const { idLogros } = req.params;
         const [logros] = await connection.query(
-            'SELECT * FROM logros WHERE idLogros = ?',
+            'SELECT * FROM logros WHERE idlogros = ?',
             [idLogros]
         );
 
@@ -82,7 +84,7 @@ export const createLogro = async (req, res) => {
         );
 
         const [nuevoLogro] = await connection.query(
-            'SELECT * FROM logros WHERE idLogros = ?',
+            'SELECT * FROM logros WHERE idlogros = ?',
             [result.insertId]
         );
 
@@ -109,7 +111,7 @@ export const updateLogro = async (req, res) => {
 
         // Verificar que el logro existe
         const [logro] = await connection.query(
-            'SELECT * FROM logros WHERE idLogros = ?',
+            'SELECT * FROM logros WHERE idlogros = ?',
             [idLogros]
         );
 
@@ -140,12 +142,12 @@ export const updateLogro = async (req, res) => {
 
         // Actualizar el logro
         await connection.query(
-            'UPDATE logros SET nombre = ?, descripcion = ?, foto = COALESCE(?, foto) WHERE idLogros = ?',
+            'UPDATE logros SET nombre = ?, descripcion = ?, foto = COALESCE(?, foto) WHERE idlogros = ?',
             [nombre, descripcion, fotoURL, idLogros]
         );
 
         const [logroActualizado] = await connection.query(
-            'SELECT * FROM logros WHERE idLogros = ?',
+            'SELECT * FROM logros WHERE idlogros = ?',
             [idLogros]
         );
 
@@ -168,45 +170,64 @@ export const deleteLogro = async (req, res) => {
     try {
         const { idLogros } = req.params;
         
-        // Verificar que el logro existe
-        const [logro] = await connection.query(
-            'SELECT * FROM logros WHERE idLogros = ?',
+        // Verificar si el logro existe
+        const [existingLogro] = await connection.query(
+            'SELECT * FROM logros WHERE idlogros = ?',
             [idLogros]
         );
 
-        if (logro.length === 0) {
+        if (existingLogro.length === 0) {
             return res.status(404).json({
                 success: false,
                 message: 'Logro no encontrado'
             });
         }
 
-        // Si el logro tiene una foto, eliminarla de Cloudinary
-        if (logro[0].foto) {
-            try {
-                const publicId = logro[0].foto.split('/').pop().split('.')[0];
-                await cloudinary.uploader.destroy(`logros/${publicId}`);
-            } catch (error) {
-                console.error('Error al eliminar imagen de Cloudinary:', error);
-            }
-        }
-
         // Eliminar el logro
         await connection.query(
-            'DELETE FROM logros WHERE idLogros = ?',
+            'DELETE FROM logros WHERE idlogros = ?',
             [idLogros]
         );
 
-        return res.status(200).json({
+        res.json({
             success: true,
-            message: 'Logro eliminado exitosamente'
+            message: 'Logro eliminado correctamente'
         });
     } catch (error) {
         console.error('Error al eliminar logro:', error);
-        return res.status(500).json({
+        res.status(500).json({
             success: false,
-            message: 'Error al eliminar el logro',
-            error: error.message
+            error: 'Error interno del servidor'
         });
     }
 }; 
+
+// Obtener logros destacados para el inicio
+export const getLogrosDestacados = async (req, res) => {
+    try {
+        // Obtener logros ordenados por nombre (ya que no existe la tabla usuarios_logros)
+        const query = `
+            SELECT l.*, 0 as usuarios_conseguidos
+            FROM logros l
+            ORDER BY l.nombre ASC
+            LIMIT 5
+        `;
+        
+        const [logros] = await connection.query(query);
+        
+        return res.status(200).json({
+            success: true,
+            data: logros,
+            message: 'Logros destacados obtenidos exitosamente'
+        });
+    } catch (error) {
+        console.error('Error al obtener logros destacados:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error al obtener los logros destacados',
+            error: error.message
+        });
+    }
+};
+
+ 
