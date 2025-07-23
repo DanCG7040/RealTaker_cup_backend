@@ -34,15 +34,16 @@ export const create = async (req, res) => {
       });
     }
 
+    const visibleValue = visible !== undefined ? (visible === true || visible === 'true' ? 1 : 0) : 1;
     // Subir imagen si se proporciona
     if (req.file) {
-      const result = await uploadToCloudinary(req.file.path);
+      const result = await uploadToCloudinary(req.file.buffer);
       imagen_url = result.secure_url;
     }
 
     const [result] = await connection.query(
       'INSERT INTO entradas (titulo, contenido, imagen_url, orden, visible) VALUES (?, ?, ?, ?, ?)',
-      [titulo, contenido, imagen_url, orden || 0, visible !== undefined ? visible : true]
+      [titulo, contenido, imagen_url, orden || 0, visibleValue]
     );
 
     const [newEntrada] = await connection.query(
@@ -78,14 +79,15 @@ export const update = async (req, res) => {
       });
     }
 
+    const visibleValue = visible !== undefined ? (visible === true || visible === 'true' ? 1 : 0) : 1;
     // Subir imagen si se proporciona
     if (req.file) {
-      const result = await uploadToCloudinary(req.file.path);
+      const result = await uploadToCloudinary(req.file.buffer);
       imagen_url = result.secure_url;
     }
 
     let query = 'UPDATE entradas SET titulo = ?, contenido = ?, orden = ?, visible = ?';
-    let params = [titulo, contenido, orden || 0, visible !== undefined ? visible : true];
+    let params = [titulo, contenido, orden || 0, visibleValue];
 
     // Si hay nueva imagen, incluirla en la actualización
     if (imagen_url) {
