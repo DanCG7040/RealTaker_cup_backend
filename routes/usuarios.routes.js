@@ -10,7 +10,9 @@ import {
   getUsuariosConTwitchEnVivo,
   getAllTwitchChannels,
   toggleTwitchActivo,
-  usarComodinUsuario
+  usarComodinUsuario,
+  notificarLogroDesbloqueado,
+  enviarParticipacion
 } from '../controllers/usuarios.controller.js';
 import { verifyToken, checkRole } from '../middlewares/auth.js';
 
@@ -32,5 +34,6 @@ router.get('/twitch', getUsuariosConTwitch);
 router.get('/twitch-en-vivo', getUsuariosConTwitchEnVivo);
 router.get('/twitch-todos', getAllTwitchChannels);
 router.put('/twitch-activar/:nickname', toggleTwitchActivo);
+router.post('/enviar-participacion', enviarParticipacion);
 
 export default router; 

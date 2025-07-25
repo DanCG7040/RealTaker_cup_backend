@@ -370,3 +370,39 @@ export const notificarLogroDesbloqueado = async (usuario_nickname, logro_nombre,
     console.error('Error al enviar correo de logro desbloqueado:', error);
   }
 }; 
+
+import transporter from '../config/mail.js';
+
+export const enviarParticipacion = async (req, res) => {
+  try {
+    const { nombre, telefono, consola, nickname, email } = req.body;
+    if (!nombre || !telefono || !consola || !nickname || !email) {
+      return res.status(400).json({ success: false, message: 'Faltan datos' });
+    }
+    // Obtener correos de todos los administradores (rol 0)
+    const [admins] = await connection.query('SELECT email FROM usuarios WHERE rol = 0');
+    const adminEmails = admins.map(a => a.email).filter(e => !!e);
+    if (adminEmails.length === 0) {
+      return res.status(500).json({ success: false, message: 'No hay administradores para notificar' });
+    }
+    // Enviar correo a todos los admins en copia
+    await transporter.sendMail({
+      from: process.env.MAIL_USER || 'tucorreo@gmail.com',
+      to: process.env.MAIL_USER || 'tucorreo@gmail.com', // destinatario principal (puede ser el sistema)
+      cc: adminEmails, // copia a todos los admins
+      subject: 'Nueva solicitud de participación',
+      html: `<h2>Solicitud de participación</h2>
+        <p><b>Nombre:</b> ${nombre}</p>
+        <p><b>Teléfono:</b> ${telefono}</p>
+        <p><b>Consola:</b> ${consola}</p>
+        <p><b>Nickname:</b> ${nickname}</p>
+        <p><b>Email:</b> ${email}</p>`
+    });
+    // Actualizar el rol del usuario a 2 (jugador)
+    await connection.query('UPDATE usuarios SET rol = 2 WHERE nickname = ?', [nickname]);
+    res.json({ success: true, message: 'Correo enviado y rol actualizado a jugador' });
+  } catch (err) {
+    console.error('Error en enviarParticipacion:', err); // Mostrar error real en consola
+    res.status(500).json({ success: false, message: 'Error al enviar correo', error: err.message });
+  }
+}; 

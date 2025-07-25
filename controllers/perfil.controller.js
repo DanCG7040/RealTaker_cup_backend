@@ -1,6 +1,7 @@
 import connection from "../db.js";
 import jwt from "jsonwebtoken";
 import { cloudinary } from "../config/cloudinary.js";
+import nodemailer from 'nodemailer';
 
 export const actualizarPerfil = async (req, res) => {
   const authHeader = req.headers.authorization;
@@ -290,5 +291,47 @@ export const updateTwitchChannel = async (req, res) => {
         console.error('Error al actualizar canal de Twitch:', error);
         return res.status(500).json({ success: false, message: 'Error interno del servidor' });
     }
+};
+
+export const solicitarJugador = async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'No autorizado' });
+    }
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.SECRET);
+    const nickname = decoded.nickname;
+    const { nombre, celular } = req.body;
+    if (!nombre || !celular) {
+      return res.status(400).json({ message: 'Nombre y celular son requeridos' });
+    }
+    // Obtener email del usuario (ya no se usará para enviar el correo, pero puede ser útil para el admin)
+    const [rows] = await connection.query('SELECT email FROM usuarios WHERE nickname = ?', [nickname]);
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+    const email = rows[0].email;
+    // Cambiar rol a 2 (jugador)
+    await connection.query('UPDATE usuarios SET rol = 2 WHERE nickname = ?', [nickname]);
+    // Enviar correo al correo de la Takercup (admin)
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.MAIL_USER,
+        pass: process.env.EMAIL_PASSWORD
+      }
+    });
+    await transporter.sendMail({
+      from: process.env.MAIL_USER,
+      to: process.env.MAIL_USER, // Ahora el destinatario es el correo de la Takercup
+      subject: 'Nueva solicitud de jugador en Takercup',
+      text: `Se ha recibido una nueva solicitud para participar como jugador.\n\nDatos del usuario:\n- Nickname: ${nickname}\n- Nombre completo: ${nombre}\n- Celular: ${celular}\n- Email registrado: ${email}`
+    });
+    return res.status(200).json({ message: 'Rol actualizado a jugador y correo enviado al admin' });
+  } catch (error) {
+    console.error('Error en solicitarJugador:', error);
+    return res.status(500).json({ message: 'Error al procesar la solicitud' });
+  }
 };
   
