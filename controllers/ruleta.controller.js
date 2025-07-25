@@ -247,12 +247,22 @@ export const girarRuleta = async (req, res) => {
     let puntosGanados = null;
     
     if (elementoGanado.tipo === 'comodin' && elementoGanado.comodin_id) {
-      // Si es un comodín, asignarlo al usuario
-      await connection.query(`
-        INSERT INTO usuario_comodines (usuario_nickname, comodin_id)
-        VALUES (?, ?)
-        ON DUPLICATE KEY UPDATE fecha_obtencion = CURRENT_TIMESTAMP
-      `, [nickname, elementoGanado.comodin_id]);
+      // Verificar si el usuario ya tiene un comodín igual sin usar
+      const [comodinesActivos] = await connection.query(
+        'SELECT * FROM usuario_comodines WHERE usuario_nickname = ? AND comodin_id = ? AND usado = 0',
+        [nickname, elementoGanado.comodin_id]
+      );
+      if (comodinesActivos.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Ya tienes este comodín y no lo has usado aún. Úsalo antes de poder ganar otro.'
+        });
+      }
+      // Si no tiene uno activo, asignar el comodín
+      await connection.query(
+        'INSERT INTO usuario_comodines (usuario_nickname, comodin_id) VALUES (?, ?)',
+        [nickname, elementoGanado.comodin_id]
+      );
     } else if (elementoGanado.tipo === 'puntos') {
       // Si son puntos, extraer el valor del texto_personalizado
       let puntos = 0;

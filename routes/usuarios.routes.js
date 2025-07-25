@@ -7,7 +7,10 @@ import {
   eliminarComodinUsuario,
   getUsuarioLogrosComodines,
   getUsuariosConTwitch,
-  getUsuariosConTwitchEnVivo
+  getUsuariosConTwitchEnVivo,
+  getAllTwitchChannels,
+  toggleTwitchActivo,
+  usarComodinUsuario
 } from '../controllers/usuarios.controller.js';
 import { verifyToken, checkRole } from '../middlewares/auth.js';
 
@@ -21,10 +24,13 @@ router.delete('/logros/:id', verifyToken, checkRole([0]), eliminarLogroUsuario);
 // Rutas para comodines de usuarios (solo admin)
 router.get('/comodines', verifyToken, checkRole([0]), getUsuarioComodines);
 router.delete('/comodines/:id', verifyToken, checkRole([0]), eliminarComodinUsuario);
+router.post('/usar-comodin', usarComodinUsuario);
 
 // Ruta para obtener logros y comodines de un usuario específico (público)
 router.get('/:nickname/logros-comodines', getUsuarioLogrosComodines);
 router.get('/twitch', getUsuariosConTwitch);
 router.get('/twitch-en-vivo', getUsuariosConTwitchEnVivo);
+router.get('/twitch-todos', getAllTwitchChannels);
+router.put('/twitch-activar/:nickname', toggleTwitchActivo);
 
 export default router; 

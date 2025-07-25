@@ -1,5 +1,6 @@
 import connection from '../db.js';
 import axios from 'axios';
+import nodemailer from 'nodemailer';
 
 // Obtener logros de usuarios
 export const getUsuarioLogros = async (req, res) => {
@@ -39,22 +40,24 @@ export const asignarLogroUsuario = async (req, res) => {
     }
 
     // Verificar que el usuario existe
-    const [usuarioRows] = await connection.query('SELECT nickname FROM usuarios WHERE nickname = ?', [usuario_nickname]);
+    const [usuarioRows] = await connection.query('SELECT nickname, email FROM usuarios WHERE nickname = ?', [usuario_nickname]);
     if (usuarioRows.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'Usuario no encontrado'
       });
     }
+    const usuarioEmail = usuarioRows[0].email;
 
     // Verificar que el logro existe
-    const [logroRows] = await connection.query('SELECT idlogros FROM logros WHERE idlogros = ?', [logro_id]);
+    const [logroRows] = await connection.query('SELECT idlogros, nombre FROM logros WHERE idlogros = ?', [logro_id]);
     if (logroRows.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'Logro no encontrado'
       });
     }
+    const logroNombre = logroRows[0].nombre;
 
     // Verificar que no se haya asignado ya
     const [existingRows] = await connection.query(
@@ -74,6 +77,9 @@ export const asignarLogroUsuario = async (req, res) => {
       INSERT INTO usuario_logros (usuario_nickname, logro_id, asignado_por)
       VALUES (?, ?, ?)
     `, [usuario_nickname, logro_id, req.usuario?.nickname || 'admin']);
+
+    // Notificar por correo
+    await notificarLogroDesbloqueado(usuario_nickname, logroNombre, usuarioEmail);
 
     res.status(201).json({
       success: true,
@@ -256,5 +262,111 @@ export const getUsuariosConTwitchEnVivo = async (req, res) => {
   } catch (error) {
     console.error('Error al obtener canales en vivo:', error);
     return res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+}; 
+
+// Obtener todos los canales de Twitch registrados (para administración)
+export const getAllTwitchChannels = async (req, res) => {
+  try {
+    const [usuarios] = await connection.query(
+      `SELECT nickname, twitch_channel, twitch_activo FROM usuarios WHERE twitch_channel IS NOT NULL AND twitch_channel != ''`
+    );
+    res.json({ success: true, data: usuarios });
+  } catch (error) {
+    console.error('Error al obtener todos los canales de Twitch:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener canales de Twitch' });
+  }
+}; 
+
+export const toggleTwitchActivo = async (req, res) => {
+  const { nickname } = req.params;
+  try {
+    // Verificar si el usuario existe
+    const [usuarios] = await connection.query(
+      'SELECT * FROM usuarios WHERE nickname = ?', [nickname]
+    );
+    if (usuarios.length === 0) {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    }
+    // Alternar el valor actual de twitch_activo
+    const actual = usuarios[0].twitch_activo === 1 ? 0 : 1;
+    await connection.query(
+      'UPDATE usuarios SET twitch_activo = ? WHERE nickname = ?', [actual, nickname]
+    );
+    return res.json({ success: true, message: 'Canal de Twitch actualizado', twitch_activo: actual });
+  } catch (error) {
+    console.error('Error al activar/desactivar canal de Twitch:', error);
+    res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+}; 
+
+// Usar un comodín de usuario
+export const usarComodinUsuario = async (req, res) => {
+  const { usuario_nickname, comodin_id } = req.body;
+  if (!usuario_nickname || !comodin_id) {
+    return res.status(400).json({ success: false, message: 'Faltan datos requeridos' });
+  }
+  try {
+    // Verificar que el usuario tenga el comodín y que no esté usado
+    const [rows] = await connection.query(
+      'SELECT uc.*, u.email, c.nombre as comodin_nombre FROM usuario_comodines uc JOIN usuarios u ON uc.usuario_nickname = u.nickname JOIN comodines c ON uc.comodin_id = c.idcomodines WHERE uc.usuario_nickname = ? AND uc.comodin_id = ? AND uc.usado = 0',
+      [usuario_nickname, comodin_id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Comodín no disponible o ya usado' });
+    }
+    const comodin = rows[0];
+    // Marcar como usado
+    await connection.query('UPDATE usuario_comodines SET usado = 1 WHERE id = ?', [comodin.id]);
+
+    // Configurar nodemailer usando variables de entorno
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.MAIL_USER,
+        pass: process.env.EMAIL_PASSWORD
+      }
+    });
+
+    // Correo para el admin
+    await transporter.sendMail({
+      from: process.env.MAIL_USER,
+      to: process.env.MAIL_USER,
+      subject: `Comodín usado por ${usuario_nickname}`,
+      text: `El jugador ${usuario_nickname} ha usado el comodín: ${comodin.comodin_nombre}`
+    });
+    // Correo para el jugador
+    await transporter.sendMail({
+      from: process.env.MAIL_USER,
+      to: comodin.email,
+      subject: 'Has usado un comodín',
+      text: `Has usado el comodín: ${comodin.comodin_nombre}. ¡Recuerda que ya no está disponible!`
+    });
+
+    return res.json({ success: true, message: 'Comodín usado correctamente y correos enviados' });
+  } catch (error) {
+    console.error('Error al usar comodín:', error);
+    res.status(500).json({ success: false, message: 'Error interno al usar comodín' });
+  }
+}; 
+
+// Notificar por correo cuando se desbloquea un logro
+export const notificarLogroDesbloqueado = async (usuario_nickname, logro_nombre, email) => {
+  try {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.MAIL_USER,
+        pass: process.env.EMAIL_PASSWORD
+      }
+    });
+    await transporter.sendMail({
+      from: process.env.MAIL_USER,
+      to: email,
+      subject: '¡Has desbloqueado un logro!',
+      text: `¡Felicidades ${usuario_nickname}! Has desbloqueado el logro: ${logro_nombre}`
+    });
+  } catch (error) {
+    console.error('Error al enviar correo de logro desbloqueado:', error);
   }
 }; 
