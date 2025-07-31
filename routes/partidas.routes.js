@@ -12,7 +12,9 @@ import {
   getResultado,
   limpiarTablaGeneral,
   getTablaGeneral,
-  getEstadisticasReales
+  getJugadoresDestacados,
+  getEstadisticasReales,
+  getEstadisticasDetalladas
 } from '../controllers/partidas.controller.js';
 import { verifyToken, checkRole } from '../middlewares/auth.js';
 
@@ -23,7 +25,9 @@ router.get('/ediciones-activas', getEdicionesActivas);
 router.get('/jugadores/:idEdicion', getJugadoresByEdicion);
 router.get('/perfil/:nickname', getPerfilJugador);
 router.get('/tabla-general', getTablaGeneral);
+router.get('/jugadores-destacados', getJugadoresDestacados);
 router.get('/estadisticas-reales', getEstadisticasReales);
+router.get('/estadisticas-detalladas/:nickname', getEstadisticasDetalladas);
 router.get('/limpiar-tabla-general', verifyToken, checkRole([0]), limpiarTablaGeneral); // Ruta específica antes de /:id
 router.get('/', getAllPartidas); // Público para histórico
 router.get('/:id', getPartidaById); // Público para histórico

@@ -15,10 +15,10 @@ export const createEdicion = async (req, res) => {
         }
 
         // Validar que el año sea un número válido
-        if (isNaN(idEdicion) || idEdicion < 2020 || idEdicion > 2030) {
+        if (isNaN(idEdicion) || idEdicion < 2000 || idEdicion > 2100) {
             return res.status(400).json({
                 success: false,
-                message: 'El año debe ser un número válido entre 2020 y 2030'
+                message: 'El año debe ser un número válido entre 2000 y 2100'
             });
         }
 

@@ -580,10 +580,25 @@ const registrarResultado = async (req, res) => {
       const deleteResultadosQuery = 'DELETE FROM resultados_partidas WHERE partida_id = ?';
       await connection.execute(deleteResultadosQuery, [id]);
       
-      // Insertar nuevos resultados
+      // Obtener información del juego y categoría
+      const juegoQuery = `
+        SELECT j.*, c.nombre as categoria_nombre 
+        FROM juegos j 
+        INNER JOIN categoria c ON j.categoria_id = c.id 
+        WHERE j.id = ?
+      `;
+      const [juegoRows] = await connection.execute(juegoQuery, [partida.juego_id]);
+      const juego = juegoRows[0];
+      
+      // Insertar nuevos resultados con campos específicos por categoría
       const insertResultadoQuery = `
-        INSERT INTO resultados_partidas (partida_id, jugador_nickname, posicion, gano, puntos) 
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO resultados_partidas (
+          partida_id, jugador_nickname, posicion, gano, puntos,
+          kills, muertes, goles, goles_recibidos, tiempo_carrera, 
+          posicion_carrera, rondas_ganadas, rondas_perdidas, 
+          nivel_alcanzado
+        ) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
       
       for (const resultado of resultados) {
@@ -592,11 +607,21 @@ const registrarResultado = async (req, res) => {
           resultado.jugador_nickname,
           resultado.posicion,
           resultado.gano ? 1 : 0,
-          resultado.puntos || 0
+          resultado.puntos || 0,
+          resultado.kills || null,
+          resultado.muertes || null,
+          resultado.goles || null,
+          resultado.goles_recibidos || null,
+          resultado.tiempo_carrera || null,
+          resultado.posicion_carrera || null,
+          resultado.rondas_ganadas || null,
+          resultado.rondas_perdidas || null,
+          resultado.nivel_alcanzado || null
+         
         ]);
       }
       
-      // Si es fase de Grupos, actualizar la tabla general
+      // Si es fase de Grupos, actualizar la tabla general y estadísticas por categoría
       if (fase === 'Grupos') {
         for (const resultado of resultados) {
           // Verificar si el jugador ya existe en la tabla general
@@ -634,6 +659,17 @@ const registrarResultado = async (req, res) => {
               resultado.gano ? 1 : 0
             ]);
           }
+          
+          // Actualizar estadísticas por categoría
+          await actualizarEstadisticasCategoria(resultado, juego, partida.idEdicion);
+        }
+      }
+      
+      // Si es fase Final, asignar logro de ganador de edición
+      if (fase === 'Final') {
+        const ganador = resultados.find(r => r.gano);
+        if (ganador) {
+          await asignarLogroGanadorEdicion(ganador.jugador_nickname, partida.idEdicion);
         }
       }
       
@@ -784,6 +820,55 @@ const getTablaGeneral = async (req, res) => {
   }
 };
 
+// Obtener jugadores destacados con mejor rendimiento histórico
+const getJugadoresDestacados = async (req, res) => {
+  try {
+    console.log('🏆 Obteniendo jugadores destacados...');
+    
+    // Obtener jugadores con mejor rendimiento histórico
+    const [jugadoresDestacados] = await connection.query(`
+      SELECT 
+        u.nickname,
+        u.foto,
+        u.descripcion,
+        COUNT(DISTINCT tp.idEdicion) as ediciones_participadas,
+        SUM(tg.partidas_ganadas) as total_victorias,
+        SUM(tg.partidas_jugadas) as total_partidas,
+        SUM(tg.puntos_totales) as total_puntos,
+        ROUND(
+          (SUM(tg.partidas_ganadas) / NULLIF(SUM(tg.partidas_jugadas), 0)) * 100, 2
+        ) as porcentaje_victorias
+      FROM usuarios u
+      LEFT JOIN torneo_participantes tp ON u.nickname = tp.jugador_nickname
+      LEFT JOIN tabla_general tg ON u.nickname = tg.jugador_nickname
+      WHERE u.rol = 2
+      GROUP BY u.nickname, u.foto, u.descripcion
+      HAVING total_partidas > 0
+      ORDER BY 
+        total_victorias DESC,
+        porcentaje_victorias DESC,
+        total_puntos DESC,
+        ediciones_participadas DESC
+      LIMIT 4
+    `);
+    
+    console.log('📊 Jugadores destacados encontrados:', jugadoresDestacados.length);
+    
+    res.json({
+      success: true,
+      data: jugadoresDestacados,
+      message: 'Jugadores destacados obtenidos exitosamente'
+    });
+  } catch (error) {
+    console.error('❌ Error al obtener jugadores destacados:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: error.message
+    });
+  }
+};
+
 // Obtener estadísticas reales del torneo
 const getEstadisticasReales = async (req, res) => {
   try {
@@ -878,6 +963,289 @@ const getEstadisticasReales = async (req, res) => {
   }
 };
 
+// Función auxiliar para actualizar estadísticas por categoría
+const actualizarEstadisticasCategoria = async (resultado, juego, idEdicion) => {
+  try {
+    // Verificar si existe registro de estadísticas para este jugador y categoría
+    const checkEstadisticasQuery = `
+      SELECT id FROM estadisticas_jugador 
+      WHERE jugador_nickname = ? AND categoria_id = ? AND idEdicion = ?
+    `;
+    const [estadisticasRows] = await connection.execute(checkEstadisticasQuery, [
+      resultado.jugador_nickname, 
+      juego.categoria_id, 
+      idEdicion
+    ]);
+    
+    const categoriaNombre = juego.categoria_nombre;
+    let updateQuery = '';
+    let updateParams = [];
+    
+    if (estadisticasRows.length > 0) {
+      // Actualizar registro existente
+      updateQuery = `
+        UPDATE estadisticas_jugador 
+        SET partidas_jugadas = partidas_jugadas + 1,
+            partidas_ganadas = partidas_ganadas + ?,
+            fecha_actualizacion = CURRENT_TIMESTAMP
+      `;
+      updateParams = [resultado.gano ? 1 : 0];
+      
+      // Agregar campos específicos según la categoría
+      switch (categoriaNombre) {
+        case 'shooters':
+          updateQuery += `, total_kills = total_kills + ?, total_muertes = total_muertes + ?`;
+          updateParams.push(resultado.kills || 0, resultado.muertes || 0);
+          break;
+        case 'deportes':
+          updateQuery += `, total_goles = total_goles + ?, total_goles_recibidos = total_goles_recibidos + ?`;
+          updateParams.push(resultado.goles || 0, resultado.goles_recibidos || 0);
+          break;
+        case 'carreras':
+          if (resultado.tiempo_carrera) {
+            updateQuery += `, mejor_tiempo_carrera = CASE 
+              WHEN mejor_tiempo_carrera IS NULL OR ? < mejor_tiempo_carrera 
+              THEN ? ELSE mejor_tiempo_carrera END`;
+            updateParams.push(resultado.tiempo_carrera, resultado.tiempo_carrera);
+          }
+          break;
+        case 'luchas':
+          updateQuery += `, total_rondas_ganadas = total_rondas_ganadas + ?, total_rondas_perdidas = total_rondas_perdidas + ?`;
+          updateParams.push(resultado.rondas_ganadas || 0, resultado.rondas_perdidas || 0);
+          break;
+        case 'plataformas':
+          updateQuery += `, maximo_nivel_alcanzado = GREATEST(maximo_nivel_alcanzado, ?)`;
+          updateParams.push(resultado.nivel_alcanzado || 0);
+          break;
+      }
+      
+      updateQuery += ` WHERE jugador_nickname = ? AND categoria_id = ? AND idEdicion = ?`;
+      updateParams.push(resultado.jugador_nickname, juego.categoria_id, idEdicion);
+      
+      await connection.execute(updateQuery, updateParams);
+    } else {
+      // Crear nuevo registro
+      const insertQuery = `
+        INSERT INTO estadisticas_jugador (
+          jugador_nickname, categoria_id, idEdicion, partidas_jugadas, partidas_ganadas,
+          total_kills, total_muertes, total_goles, total_goles_recibidos, 
+          mejor_tiempo_carrera, total_rondas_ganadas, total_rondas_perdidas,
+          maximo_nivel_alcanzado
+        ) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+      
+      const insertParams = [
+        resultado.jugador_nickname, 
+        juego.categoria_id, 
+        idEdicion,
+        resultado.gano ? 1 : 0,
+        categoriaNombre === 'shooters' ? (resultado.kills || 0) : 0,
+        categoriaNombre === 'shooters' ? (resultado.muertes || 0) : 0,
+        categoriaNombre === 'deportes' ? (resultado.goles || 0) : 0,
+        categoriaNombre === 'deportes' ? (resultado.goles_recibidos || 0) : 0,
+        categoriaNombre === 'carreras' ? (resultado.tiempo_carrera || null) : null,
+        categoriaNombre === 'luchas' ? (resultado.rondas_ganadas || 0) : 0,
+        categoriaNombre === 'luchas' ? (resultado.rondas_perdidas || 0) : 0,
+        categoriaNombre === 'plataformas' ? (resultado.nivel_alcanzado || 0) : 0
+      ];
+      
+      await connection.execute(insertQuery, insertParams);
+    }
+  } catch (error) {
+    console.error('Error al actualizar estadísticas por categoría:', error);
+    throw error;
+  }
+};
+
+// Función auxiliar para asignar logro de ganador de edición
+const asignarLogroGanadorEdicion = async (nickname, idEdicion) => {
+  try {
+    console.log(`🏆 Asignando logro de ganador de edición ${idEdicion} a ${nickname}`);
+    
+    // Obtener información de la edición
+    const [edicionRows] = await connection.execute(`
+      SELECT idEdicion FROM edicion WHERE idEdicion = ?
+    `, [idEdicion]);
+    
+    if (edicionRows.length === 0) {
+      console.error('❌ Edición no encontrada:', idEdicion);
+      return;
+    }
+    
+    // Crear o verificar si existe el logro de ganador de edición
+    const logroNombre = `Ganador Real TakerCup ${idEdicion}`;
+    const logroDescripcion = `Campeón de la edición ${idEdicion} de la Real TakerCup`;
+    
+    // Verificar si el logro ya existe
+    const [logroRows] = await connection.execute(`
+      SELECT idlogros FROM logros WHERE nombre = ?
+    `, [logroNombre]);
+    
+    let logroId;
+    if (logroRows.length === 0) {
+      // Crear el logro
+      const [logroResult] = await connection.execute(`
+        INSERT INTO logros (nombre, descripcion) VALUES (?, ?)
+      `, [logroNombre, logroDescripcion]);
+      logroId = logroResult.insertId;
+      console.log('✅ Logro creado:', logroId);
+    } else {
+      logroId = logroRows[0].idlogros;
+    }
+    
+    // Verificar si el jugador ya tiene este logro
+    const [logroUsuarioRows] = await connection.execute(`
+      SELECT id FROM usuario_logros WHERE usuario_nickname = ? AND logro_id = ?
+    `, [nickname, logroId]);
+    
+    if (logroUsuarioRows.length === 0) {
+      // Asignar el logro al jugador
+      await connection.execute(`
+        INSERT INTO usuario_logros (usuario_nickname, logro_id, asignado_por) 
+        VALUES (?, ?, 'Sistema')
+      `, [nickname, logroId]);
+      console.log('✅ Logro asignado a:', nickname);
+    } else {
+      console.log('ℹ️ El jugador ya tiene este logro');
+    }
+    
+  } catch (error) {
+    console.error('❌ Error al asignar logro de ganador:', error);
+  }
+};
+
+// Obtener estadísticas detalladas por jugador y categoría
+const getEstadisticasDetalladas = async (req, res) => {
+  try {
+    const { nickname } = req.params;
+    const { idEdicion } = req.query;
+    
+    console.log('🔍 Obteniendo estadísticas para:', nickname);
+    console.log('📋 Parámetros:', { nickname, idEdicion });
+    
+    if (!nickname || nickname === 'undefined') {
+      return res.status(400).json({
+        success: false,
+        message: 'Nickname es requerido y debe ser válido'
+      });
+    }
+    
+    // Verificar que el usuario existe
+    const userQuery = 'SELECT nickname FROM usuarios WHERE nickname = ?';
+    const [userRows] = await connection.execute(userQuery, [nickname]);
+    
+    if (userRows.length === 0) {
+      console.log('❌ Usuario no encontrado:', nickname);
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+    
+    // Obtener la edición actual si no se especifica
+    let edicionActual = idEdicion;
+    if (!edicionActual) {
+      const edicionQuery = `
+        SELECT idEdicion FROM edicion 
+        ORDER BY idEdicion DESC 
+        LIMIT 1
+      `;
+      const [edicionRows] = await connection.execute(edicionQuery);
+      if (edicionRows.length > 0) {
+        edicionActual = edicionRows[0].idEdicion;
+      }
+    }
+    
+    console.log('🎯 Edición actual:', edicionActual);
+    
+    // Construir la consulta base
+    let query = `
+      SELECT 
+        ej.jugador_nickname,
+        ej.categoria_id,
+        c.nombre as categoria_nombre,
+        ej.partidas_jugadas,
+        ej.partidas_ganadas,
+        ej.total_kills,
+        ej.total_muertes,
+        ej.total_goles,
+        ej.total_goles_recibidos,
+        ej.mejor_tiempo_carrera,
+        ej.total_rondas_ganadas,
+        ej.total_rondas_perdidas,
+        ej.maximo_nivel_alcanzado,
+        ej.fecha_actualizacion
+      FROM estadisticas_jugador ej
+      INNER JOIN categoria c ON ej.categoria_id = c.id
+      WHERE ej.jugador_nickname = ?
+    `;
+    
+    const queryParams = [nickname];
+    
+    if (edicionActual) {
+      query += ' AND ej.idEdicion = ?';
+      queryParams.push(edicionActual);
+    }
+    
+    query += ' ORDER BY c.nombre';
+    
+    console.log('📊 Query:', query);
+    console.log('🔢 Parámetros:', queryParams);
+    
+    const [rows] = await connection.execute(query, queryParams);
+    
+    console.log('📈 Estadísticas encontradas:', rows.length);
+    
+    // Calcular estadísticas adicionales
+    const estadisticasConCalculos = rows.map(stat => {
+      const estadistica = { ...stat };
+      
+      // Calcular porcentaje de victorias
+      estadistica.porcentaje_victorias = stat.partidas_jugadas > 0 
+        ? Math.round((stat.partidas_ganadas / stat.partidas_jugadas) * 100) 
+        : 0;
+      
+      // Calcular K/D ratio para shooters
+      if (stat.categoria_nombre === 'shooters' && stat.total_muertes > 0) {
+        estadistica.kd_ratio = parseFloat((stat.total_kills / stat.total_muertes).toFixed(2));
+      } else if (stat.categoria_nombre === 'shooters') {
+        estadistica.kd_ratio = stat.total_kills;
+      }
+      
+      // Calcular diferencia de goles para deportes
+      if (stat.categoria_nombre === 'deportes') {
+        estadistica.diferencia_goles = stat.total_goles - stat.total_goles_recibidos;
+      }
+      
+      // Calcular porcentaje de rondas ganadas para luchas
+      if (stat.categoria_nombre === 'luchas') {
+        const totalRondas = stat.total_rondas_ganadas + stat.total_rondas_perdidas;
+        estadistica.porcentaje_rondas_ganadas = totalRondas > 0 
+          ? Math.round((stat.total_rondas_ganadas / totalRondas) * 100) 
+          : 0;
+      }
+      
+      return estadistica;
+    });
+    
+    res.json({
+      success: true,
+      message: 'Estadísticas detalladas obtenidas exitosamente',
+      data: {
+        jugador: nickname,
+        estadisticas: estadisticasConCalculos
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error al obtener estadísticas detalladas:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: error.message
+    });
+  }
+};
+
 export {
   getEdicionesActivas,
   getJugadoresByEdicion,
@@ -891,5 +1259,7 @@ export {
   getResultado,
   limpiarTablaGeneral,
   getTablaGeneral,
-  getEstadisticasReales
+  getJugadoresDestacados,
+  getEstadisticasReales,
+  getEstadisticasDetalladas
 }; 

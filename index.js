@@ -78,6 +78,9 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Servir archivos estáticos desde la carpeta uploads
+app.use('/uploads', express.static('uploads'));
+
 // Middleware para verificar la conexión a la base de datos
 app.use(async (req, res, next) => {
   try {
