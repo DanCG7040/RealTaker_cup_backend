@@ -320,6 +320,9 @@ export const solicitarJugador = async (req, res) => {
       auth: {
         user: process.env.MAIL_USER,
         pass: process.env.EMAIL_PASSWORD
+      },
+      tls: {
+        rejectUnauthorized: false
       }
     });
     await transporter.sendMail({

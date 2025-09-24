@@ -171,6 +171,9 @@ export const olvideMiContrasena = async (req, res) => {
       auth: {
         user: process.env.MAIL_USER,
         pass: process.env.EMAIL_PASSWORD
+      },
+      tls: {
+        rejectUnauthorized: false
       }
     });
 

@@ -147,15 +147,26 @@ export const getRuletaConfiguracion = async (req, res) => {
         success: true,
         data: {
           ruleta_activa: false,
-          max_giros_por_dia: 3
+          max_giros_por_dia: 3,
+          elementos: []
         }
       });
     } else {
+      // Obtener elementos activos de la ruleta
+      const [elementos] = await connection.query(`
+        SELECT r.*, c.nombre as comodin_nombre, c.foto as comodin_foto
+        FROM ruleta r
+        LEFT JOIN comodines c ON r.comodin_id = c.idcomodines
+        WHERE r.activo = 1
+        ORDER BY r.id ASC
+      `);
+      
       res.json({
         success: true,
         data: {
           ruleta_activa: rows[0].ruleta_activa === 1,
-          max_giros_por_dia: rows[0].max_giros_por_dia
+          max_giros_por_dia: rows[0].max_giros_por_dia,
+          elementos: elementos
         }
       });
     }

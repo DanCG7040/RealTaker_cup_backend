@@ -12,7 +12,8 @@ import {
   toggleTwitchActivo,
   usarComodinUsuario,
   notificarLogroDesbloqueado,
-  enviarParticipacion
+  enviarParticipacion,
+  getInformacionCompletaJugador
 } from '../controllers/usuarios.controller.js';
 import { verifyToken, checkRole } from '../middlewares/auth.js';
 
@@ -30,6 +31,8 @@ router.post('/usar-comodin', usarComodinUsuario);
 
 // Ruta para obtener logros y comodines de un usuario específico (público)
 router.get('/:nickname/logros-comodines', getUsuarioLogrosComodines);
+// Ruta para obtener información completa del jugador (público)
+router.get('/:nickname/informacion-completa', getInformacionCompletaJugador);
 router.get('/twitch', getUsuariosConTwitch);
 router.get('/twitch-en-vivo', getUsuariosConTwitchEnVivo);
 router.get('/twitch-todos', getAllTwitchChannels);

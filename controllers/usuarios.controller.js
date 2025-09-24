@@ -325,6 +325,9 @@ export const usarComodinUsuario = async (req, res) => {
       auth: {
         user: process.env.MAIL_USER,
         pass: process.env.EMAIL_PASSWORD
+      },
+      tls: {
+        rejectUnauthorized: false
       }
     });
 
@@ -358,6 +361,9 @@ export const notificarLogroDesbloqueado = async (usuario_nickname, logro_nombre,
       auth: {
         user: process.env.MAIL_USER,
         pass: process.env.EMAIL_PASSWORD
+      },
+      tls: {
+        rejectUnauthorized: false
       }
     });
     await transporter.sendMail({
@@ -404,5 +410,149 @@ export const enviarParticipacion = async (req, res) => {
   } catch (err) {
     console.error('Error en enviarParticipacion:', err); // Mostrar error real en consola
     res.status(500).json({ success: false, message: 'Error al enviar correo', error: err.message });
+  }
+};
+
+// Obtener información completa del jugador para mini panel
+export const getInformacionCompletaJugador = async (req, res) => {
+  try {
+    const { nickname } = req.params;
+    
+    if (!nickname) {
+      return res.status(400).json({
+        success: false,
+        message: 'Nickname es requerido'
+      });
+    }
+
+    // Obtener información básica del jugador
+    const [jugadorRows] = await connection.query(`
+      SELECT 
+        u.nickname,
+        u.foto,
+        u.descripcion,
+        u.twitch_channel,
+        u.twitch_activo
+      FROM usuarios u
+      WHERE u.nickname = ? AND u.rol = 2
+    `, [nickname]);
+
+    if (jugadorRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Jugador no encontrado'
+      });
+    }
+
+    const jugador = jugadorRows[0];
+
+    // Obtener estadísticas generales del jugador
+    const [estadisticasRows] = await connection.query(`
+      SELECT 
+        COUNT(DISTINCT tp.idEdicion) as ediciones_participadas,
+        SUM(tg.partidas_ganadas) as total_victorias,
+        SUM(tg.partidas_jugadas) as total_partidas,
+        SUM(tg.puntos_totales) as total_puntos,
+        ROUND(
+          (SUM(tg.partidas_ganadas) / NULLIF(SUM(tg.partidas_jugadas), 0)) * 100, 2
+        ) as porcentaje_victorias
+      FROM usuarios u
+      LEFT JOIN torneo_participantes tp ON u.nickname = tp.jugador_nickname
+      LEFT JOIN tabla_general tg ON u.nickname = tg.jugador_nickname
+      WHERE u.nickname = ?
+      GROUP BY u.nickname
+    `, [nickname]);
+
+    // Obtener logros recientes (últimos 3)
+    const [logrosRows] = await connection.query(`
+      SELECT 
+        ul.fecha_obtencion,
+        l.nombre as logro_nombre,
+        l.foto as logro_foto
+      FROM usuario_logros ul
+      JOIN logros l ON ul.logro_id = l.idlogros
+      WHERE ul.usuario_nickname = ?
+      ORDER BY ul.fecha_obtencion DESC
+      LIMIT 3
+    `, [nickname]);
+
+    // Obtener comodines activos (no usados)
+    const [comodinesRows] = await connection.query(`
+      SELECT 
+        uc.fecha_obtencion,
+        c.nombre as comodin_nombre,
+        c.foto as comodin_foto
+      FROM usuario_comodines uc
+      JOIN comodines c ON uc.comodin_id = c.idcomodines
+      WHERE uc.usuario_nickname = ? AND uc.usado = 0
+      ORDER BY uc.fecha_obtencion DESC
+      LIMIT 3
+    `, [nickname]);
+
+    // Obtener posición en tabla general actual
+    const [posicionRows] = await connection.query(`
+      SELECT 
+        tg.puntos_totales,
+        tg.partidas_jugadas,
+        tg.partidas_ganadas,
+        (
+          SELECT COUNT(*) + 1 
+          FROM tabla_general tg2 
+          WHERE tg2.puntos_totales > tg.puntos_totales 
+          AND tg2.idEdicion = tg.idEdicion
+        ) as posicion
+      FROM tabla_general tg
+      INNER JOIN (
+        SELECT idEdicion FROM edicion ORDER BY idEdicion DESC LIMIT 1
+      ) e ON tg.idEdicion = e.idEdicion
+      WHERE tg.jugador_nickname = ?
+    `, [nickname]);
+
+    // Obtener último logro obtenido
+    const [ultimoLogroRows] = await connection.query(`
+      SELECT 
+        l.nombre as logro_nombre,
+        l.foto as logro_foto,
+        ul.fecha_obtencion
+      FROM usuario_logros ul
+      JOIN logros l ON ul.logro_id = l.idlogros
+      WHERE ul.usuario_nickname = ?
+      ORDER BY ul.fecha_obtencion DESC
+      LIMIT 1
+    `, [nickname]);
+
+    const estadisticas = estadisticasRows[0] || {
+      ediciones_participadas: 0,
+      total_victorias: 0,
+      total_partidas: 0,
+      total_puntos: 0,
+      porcentaje_victorias: 0
+    };
+
+    const posicionActual = posicionRows[0] || null;
+
+    res.json({
+      success: true,
+      data: {
+        jugador: {
+          nickname: jugador.nickname,
+          foto: jugador.foto,
+          descripcion: jugador.descripcion,
+          twitch_channel: jugador.twitch_channel,
+          twitch_activo: jugador.twitch_activo
+        },
+        estadisticas: estadisticas,
+        posicion_actual: posicionActual,
+        logros_recientes: logrosRows,
+        comodines_activos: comodinesRows,
+        ultimo_logro: ultimoLogroRows[0] || null
+      }
+    });
+  } catch (error) {
+    console.error('Error al obtener información completa del jugador:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
+    });
   }
 }; 
